@@ -1,5 +1,5 @@
 {
-  "name": "ki-simultan",
+  "name": "linguai",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@upstash/redis": "^1.36.2",
+    "@supabase/supabase-js": "^2.97.0",
     "nanoid": "^5.0.0",
     "openai": "^4.80.0",
     "qrcode.react": "^4.2.0",

@@ -1,4 +1,4 @@
-# KI-Simultanübersetzung — Prototyp
+# LinguAI — KI-Simultanübersetzung Prototyp
 
 ## 1. Projektbeschreibung
 
@@ -71,7 +71,7 @@ Vercel Serverless Functions sind stateless. Wenn der Speaker Text sendet, landet
 ## 4. Projektstruktur
 
 ```
-KI-SIMULTAN/
+linguai/
 ├── src/
 │   ├── routes/
 │   │   ├── home.tsx                    # Session erstellen (CreateSessionForm)
