@@ -1,10 +1,12 @@
 import { useRef, useState, useCallback } from "react";
 import type { SupportedLanguage } from "~/types/session.ts";
-import type { TranslateRequestBody } from "~/types/api.ts";
+import type { TranslateRequestBody, TranslateResponse } from "~/types/api.ts";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface UseRealtimeTranscriptionOptions {
-  sessionId: string;
   sourceLang: SupportedLanguage;
+  targetLangs: SupportedLanguage[];
+  channel: RealtimeChannel | null;
   onInterimTranscript?: (text: string) => void;
   onFinalTranscript?: (text: string, seq: number) => void;
 }
@@ -12,8 +14,9 @@ interface UseRealtimeTranscriptionOptions {
 type Status = "idle" | "connecting" | "active" | "error";
 
 export function useRealtimeTranscription({
-  sessionId,
   sourceLang,
+  targetLangs,
+  channel,
   onInterimTranscript,
   onFinalTranscript,
 }: UseRealtimeTranscriptionOptions) {
@@ -26,24 +29,22 @@ export function useRealtimeTranscription({
     const res = await fetch("/api/realtime-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId }),
+      body: JSON.stringify({}),
     });
     if (!res.ok) throw new Error("Failed to fetch ephemeral token");
     const data = await res.json();
     return data.token as string;
-  }, [sessionId]);
+  }, []);
 
   const handleRealtimeEvent = useCallback(
     (event: Record<string, unknown>) => {
       switch (event.type) {
-        // Interim transcript — show live to speaker
         case "conversation.item.input_audio_transcription.delta": {
           const delta = event.delta as string | undefined;
           if (delta) onInterimTranscript?.(delta);
           break;
         }
 
-        // Final transcript — send for translation
         case "conversation.item.input_audio_transcription.completed": {
           const transcript = event.transcript as string | undefined;
           if (!transcript?.trim()) break;
@@ -51,11 +52,11 @@ export function useRealtimeTranscription({
           const seq = ++seqRef.current;
           onFinalTranscript?.(transcript, seq);
 
+          // Translate and broadcast via Supabase
           const body: TranslateRequestBody = {
-            sessionId,
             text: transcript.trim(),
             sourceLang,
-            isFinal: true,
+            targetLangs,
             sequenceNum: seq,
           };
 
@@ -63,7 +64,17 @@ export function useRealtimeTranscription({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
-          }).catch((err) => console.error("[Realtime] POST failed:", err));
+          })
+            .then((res) => res.json())
+            .then((data: TranslateResponse) => {
+              // Broadcast translated segment to all clients
+              channel?.send({
+                type: "broadcast",
+                event: "segment",
+                payload: data.segment,
+              });
+            })
+            .catch((err) => console.error("[Realtime] translate failed:", err));
           break;
         }
 
@@ -74,7 +85,7 @@ export function useRealtimeTranscription({
         }
       }
     },
-    [sessionId, sourceLang, onInterimTranscript, onFinalTranscript]
+    [sourceLang, targetLangs, channel, onInterimTranscript, onFinalTranscript]
   );
 
   const start = useCallback(async () => {
@@ -82,7 +93,6 @@ export function useRealtimeTranscription({
     try {
       const ephemeralKey = await fetchEphemeralToken();
 
-      // Get microphone
       const micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -91,7 +101,6 @@ export function useRealtimeTranscription({
         },
       });
 
-      // Create PeerConnection
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
@@ -99,7 +108,6 @@ export function useRealtimeTranscription({
         pc.addTrack(track, micStream);
       }
 
-      // Data channel for receiving transcription events
       const dc = pc.createDataChannel("oai-events");
       dcRef.current = dc;
 
@@ -107,7 +115,6 @@ export function useRealtimeTranscription({
         handleRealtimeEvent(JSON.parse(e.data as string));
       });
 
-      // SDP negotiation with OpenAI Realtime
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
@@ -128,7 +135,6 @@ export function useRealtimeTranscription({
       const answerSdp = await sdpResponse.text();
       await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
-      // Wait for data channel to open
       await new Promise<void>((resolve) => {
         if (dc.readyState === "open") {
           resolve();
@@ -137,7 +143,6 @@ export function useRealtimeTranscription({
         dc.addEventListener("open", () => resolve(), { once: true });
       });
 
-      // Configure session: transcription only, no AI response
       dc.send(
         JSON.stringify({
           type: "session.update",

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { useRealtimeTranscription } from "~/hooks/useRealtimeTranscription.ts";
 import { QRCodeDisplay } from "~/components/QRCodeDisplay.tsx";
 import { RecordingControls } from "~/components/RecordingControls.tsx";
 import { TranscriptView } from "~/components/TranscriptView.tsx";
-import { getSession, getSessionUrl } from "~/lib/session.ts";
 import { LANGUAGES } from "~/lib/languages.ts";
-import type { SessionMeta, SupportedLanguage } from "~/types/session.ts";
+import { supabase } from "~/lib/supabase.ts";
+import type { SupportedLanguage } from "~/types/session.ts";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface FinalSegment {
   id: string;
@@ -16,16 +17,29 @@ interface FinalSegment {
 
 export function Speaker() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const [session, setSession] = useState<SessionMeta | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
   const [interimText, setInterimText] = useState("");
   const [segments, setSegments] = useState<FinalSegment[]>([]);
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
+  const title = searchParams.get("title") || "Session";
+  const sourceLang = (searchParams.get("source") || "en") as SupportedLanguage;
+  const targetLanguages = (searchParams.get("targets") || "es,pt,ms").split(
+    ","
+  ) as SupportedLanguage[];
+
+  // Create a Supabase channel for broadcasting segments
   useEffect(() => {
     if (!sessionId) return;
-    getSession(sessionId)
-      .then(setSession)
-      .catch(() => setError("Session nicht gefunden"));
+    const ch = supabase.channel(`session-${sessionId}`);
+    ch.subscribe((status) => {
+      if (status === "SUBSCRIBED") setChannel(ch);
+    });
+
+    return () => {
+      ch.unsubscribe();
+      setChannel(null);
+    };
   }, [sessionId]);
 
   const handleInterim = useCallback((text: string) => {
@@ -41,41 +55,38 @@ export function Speaker() {
   }, []);
 
   const { start, stop, status } = useRealtimeTranscription({
-    sessionId: sessionId ?? "",
-    sourceLang: (session?.sourceLang ?? "en") as SupportedLanguage,
+    sourceLang,
+    targetLangs: targetLanguages,
+    channel,
     onInterimTranscript: handleInterim,
     onFinalTranscript: handleFinal,
   });
 
-  if (error) {
+  if (!sessionId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-600">Keine Session-ID</p>
       </div>
     );
   }
 
-  if (!session || !sessionId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Lade Session...</p>
-      </div>
-    );
-  }
-
-  const sessionUrl = getSessionUrl(sessionId);
+  // Build session URL for QR code (inline, no server needed)
+  const base = import.meta.env.VITE_APP_URL || window.location.origin;
+  const qsParams = new URLSearchParams({
+    title,
+    targets: targetLanguages.join(","),
+  });
+  const sessionUrl = `${base}/session/${sessionId}?${qsParams}`;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-4xl">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-gray-900">
-            {session.title || "Session"}
-          </h1>
+          <h1 className="text-xl font-bold text-gray-900">{title}</h1>
           <p className="text-sm text-gray-500">
-            {LANGUAGES[session.sourceLang].label} →{" "}
-            {session.targetLanguages.map((l) => LANGUAGES[l].label).join(", ")}
+            {LANGUAGES[sourceLang].label} →{" "}
+            {targetLanguages.map((l) => LANGUAGES[l].label).join(", ")}
           </p>
         </div>
 

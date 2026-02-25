@@ -1,13 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { Redis } from "@upstash/redis";
 import OpenAI from "openai";
 import { nanoid } from "nanoid";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
-});
 
 const LANG_NAMES: Record<string, string> = {
   en: "English",
@@ -18,55 +13,28 @@ const LANG_NAMES: Record<string, string> = {
   sk: "Slovak",
 };
 
-const TTL_SECONDS = 6 * 60 * 60;
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { sessionId, text, sourceLang, isFinal, sequenceNum } = req.body;
+  const { text, sourceLang, targetLangs, sequenceNum } = req.body;
 
-  if (!sessionId || !text || !sourceLang || sequenceNum == null) {
+  if (!text || !sourceLang || !targetLangs?.length) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  // Get session meta to know target languages
-  const rawMeta = await redis.get<string>(`session:${sessionId}:meta`);
-  if (!rawMeta) {
-    return res.status(404).json({ error: "Session not found" });
-  }
-
-  const meta = typeof rawMeta === "string" ? JSON.parse(rawMeta) : rawMeta;
-  const targetLangs: string[] = meta.targetLanguages.filter(
-    (l: string) => l !== sourceLang
-  );
-
-  // Batch translate in one API call
   const translations = await batchTranslate(text, sourceLang, targetLangs);
 
   const segment = {
     id: nanoid(),
-    sessionId,
-    sequenceNum,
+    sequenceNum: sequenceNum ?? 0,
     originalText: text,
     originalLang: sourceLang,
     translations,
     timestampMs: Date.now(),
-    isFinal: isFinal ?? true,
+    isFinal: true,
   };
-
-  // Store in Redis sorted set (score = sequenceNum)
-  await Promise.all([
-    redis.zadd(`session:${sessionId}:segments`, {
-      score: sequenceNum,
-      member: JSON.stringify(segment),
-    }),
-    redis.set(`session:${sessionId}:latest`, sequenceNum, {
-      ex: TTL_SECONDS,
-    }),
-    redis.expire(`session:${sessionId}:segments`, TTL_SECONDS),
-  ]);
 
   return res.json({ segment });
 }

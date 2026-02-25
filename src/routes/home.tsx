@@ -1,33 +1,24 @@
-import { useState } from "react";
 import { useNavigate } from "react-router";
+import { nanoid } from "nanoid";
 import { CreateSessionForm } from "~/components/CreateSessionForm.tsx";
-import { createSession } from "~/lib/session.ts";
 import type { SupportedLanguage } from "~/types/session.ts";
 
 export function Home() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (data: {
+  const handleSubmit = (data: {
     title: string;
     sourceLang: SupportedLanguage;
     targetLanguages: SupportedLanguage[];
     speakerName: string;
   }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const session = await createSession(data);
-      navigate(`/speaker/${session.sessionId}`);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Session konnte nicht erstellt werden"
-      );
-    } finally {
-      setLoading(false);
-    }
+    const sessionId = nanoid(8);
+    const params = new URLSearchParams({
+      title: data.title,
+      source: data.sourceLang,
+      targets: data.targetLanguages.join(","),
+    });
+    navigate(`/speaker/${sessionId}?${params}`);
   };
 
   return (
@@ -43,11 +34,7 @@ export function Home() {
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <CreateSessionForm onSubmit={handleSubmit} loading={loading} />
-
-          {error && (
-            <p className="mt-4 text-sm text-red-600 text-center">{error}</p>
-          )}
+          <CreateSessionForm onSubmit={handleSubmit} />
         </div>
       </div>
     </div>

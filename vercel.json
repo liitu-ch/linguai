@@ -4,21 +4,11 @@
   "outputDirectory": "dist",
   "devCommand": "npx vite --port $PORT",
   "functions": {
-    "api/stream.ts": {
-      "runtime": "@vercel/node@3"
-    },
-    "api/tts.ts": {
-      "runtime": "@vercel/node@3"
-    },
     "api/translate.ts": {
       "maxDuration": 30
     },
     "api/realtime-token.ts": {
       "maxDuration": 10
     }
-  },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  }
 }
