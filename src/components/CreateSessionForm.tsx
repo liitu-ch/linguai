@@ -31,11 +31,7 @@ export function CreateSessionForm({
   const [title, setTitle] = useState("");
   const [speakerName, setSpeakerName] = useState("");
   const [sourceLang, setSourceLang] = useState<SupportedLanguage>("en");
-  const [targetLanguages, setTargetLanguages] = useState<SupportedLanguage[]>([
-    "es",
-    "pt",
-    "ms",
-  ]);
+  const [targetLanguages, setTargetLanguages] = useState<SupportedLanguage[]>([]);
 
   const toggleTarget = (lang: SupportedLanguage) => {
     setTargetLanguages((prev) =>

@@ -1,18 +1,15 @@
 import { useCallback, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
-import { Languages, ArrowLeft } from "lucide-react";
+import { Languages } from "lucide-react";
 import { useChannel } from "~/hooks/useChannel.ts";
 import { useTTS, type TTSMode } from "~/hooks/useTTS.ts";
-import { LanguageSelector } from "~/components/LanguageSelector.tsx";
+import { LanguageSelector, LanguageSwitcher } from "~/components/LanguageSelector.tsx";
 import { TranscriptView } from "~/components/TranscriptView.tsx";
 import { TTSControls } from "~/components/TTSControls.tsx";
-import { Button } from "~/components/ui/button.tsx";
-import { Badge } from "~/components/ui/badge.tsx";
 import {
   Card,
   CardContent,
 } from "~/components/ui/card.tsx";
-import { LANGUAGES } from "~/lib/languages.ts";
 import type { SupportedLanguage, TranslationSegment } from "~/types/session.ts";
 
 interface DisplaySegment {
@@ -117,26 +114,23 @@ export function Session() {
                       : "bg-yellow-500 animate-pulse"
                 }`}
               />
-              <Badge variant="secondary" className="text-xs">
-                {LANGUAGES[selectedLang].flag} {LANGUAGES[selectedLang].label}
-              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {connectionState === "open"
+                  ? "Verbunden"
+                  : connectionState === "error"
+                    ? "Fehler"
+                    : "Verbinde..."}
+              </span>
             </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <TTSControls mode={ttsMode} onModeChange={setTtsMode} />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="px-2 sm:px-3"
-              onClick={() => {
-                setSelectedLang(null);
-                setSegments([]);
-              }}
-            >
-              <ArrowLeft className="size-4" />
-              <span className="hidden sm:inline">Sprache</span>
-            </Button>
+            <LanguageSwitcher
+              languages={targetLangs}
+              selected={selectedLang}
+              onSelect={setSelectedLang}
+            />
           </div>
         </div>
       </header>

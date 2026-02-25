@@ -1,22 +1,55 @@
 import { useRef, useState, useCallback } from "react";
 import type { SupportedLanguage } from "~/types/session.ts";
-import type { TranslateRequestBody, TranslateResponse } from "~/types/api.ts";
+import type { TranslateRequestBody, TranslateResponse, GlossaryEntry } from "~/types/api.ts";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface UseRealtimeTranscriptionOptions {
   sourceLang: SupportedLanguage;
   targetLangs: SupportedLanguage[];
   channel: RealtimeChannel | null;
+  glossary?: GlossaryEntry[];
+  context?: string;
+  silenceDurationMs?: number;
+  vadThreshold?: number;
   onInterimTranscript?: (text: string) => void;
   onFinalTranscript?: (text: string, seq: number) => void;
 }
 
 type Status = "idle" | "connecting" | "active" | "error";
 
+/**
+ * Build Realtime API instructions enriched with glossary terms and context.
+ * This helps Whisper transcribe domain-specific terminology more accurately.
+ */
+function buildInstructions(
+  glossary?: GlossaryEntry[],
+  context?: string
+): string {
+  let instructions =
+    "Transcribe the audio accurately. Output only the transcribed text.";
+
+  if (glossary && glossary.length > 0) {
+    const terms = glossary.map((g) => g.source).join(", ");
+    instructions += `\n\nThe speaker may use the following domain-specific terms — transcribe them exactly as listed: ${terms}`;
+  }
+
+  if (context && context.trim()) {
+    // Provide a condensed summary for the Realtime API (keep instructions short)
+    const summary = context.trim().slice(0, 2000);
+    instructions += `\n\nTopic context for accurate transcription:\n${summary}`;
+  }
+
+  return instructions;
+}
+
 export function useRealtimeTranscription({
   sourceLang,
   targetLangs,
   channel,
+  glossary,
+  context,
+  silenceDurationMs = 600,
+  vadThreshold = 0.5,
   onInterimTranscript,
   onFinalTranscript,
 }: UseRealtimeTranscriptionOptions) {
@@ -24,6 +57,30 @@ export function useRealtimeTranscription({
   const dcRef = useRef<RTCDataChannel | null>(null);
   const seqRef = useRef(0);
   const [status, setStatus] = useState<Status>("idle");
+
+  // Stable refs for session prep data — frozen at start(), read in callbacks.
+  // This avoids re-creating the event handler callback when glossary/context change,
+  // and avoids sending stale closures.
+  const glossaryRef = useRef(glossary);
+  const contextRef = useRef(context);
+  const silenceDurationMsRef = useRef(silenceDurationMs);
+  const vadThresholdRef = useRef(vadThreshold);
+  glossaryRef.current = glossary;
+  contextRef.current = context;
+  silenceDurationMsRef.current = silenceDurationMs;
+  vadThresholdRef.current = vadThreshold;
+
+  // Stable refs for callbacks
+  const channelRef = useRef(channel);
+  channelRef.current = channel;
+  const onInterimRef = useRef(onInterimTranscript);
+  onInterimRef.current = onInterimTranscript;
+  const onFinalRef = useRef(onFinalTranscript);
+  onFinalRef.current = onFinalTranscript;
+  const sourceLangRef = useRef(sourceLang);
+  sourceLangRef.current = sourceLang;
+  const targetLangsRef = useRef(targetLangs);
+  targetLangsRef.current = targetLangs;
 
   const fetchEphemeralToken = useCallback(async (): Promise<string> => {
     const res = await fetch("/api/realtime-token", {
@@ -41,7 +98,7 @@ export function useRealtimeTranscription({
       switch (event.type) {
         case "conversation.item.input_audio_transcription.delta": {
           const delta = event.delta as string | undefined;
-          if (delta) onInterimTranscript?.(delta);
+          if (delta) onInterimRef.current?.(delta);
           break;
         }
 
@@ -50,14 +107,19 @@ export function useRealtimeTranscription({
           if (!transcript?.trim()) break;
 
           const seq = ++seqRef.current;
-          onFinalTranscript?.(transcript, seq);
+          onFinalRef.current?.(transcript, seq);
 
-          // Translate and broadcast via Supabase
+          // Read current values from refs
+          const currentGlossary = glossaryRef.current;
+          const currentContext = contextRef.current;
+
           const body: TranslateRequestBody = {
             text: transcript.trim(),
-            sourceLang,
-            targetLangs,
+            sourceLang: sourceLangRef.current,
+            targetLangs: targetLangsRef.current,
             sequenceNum: seq,
+            glossary: currentGlossary?.length ? currentGlossary : undefined,
+            context: currentContext?.trim() || undefined,
           };
 
           fetch("/api/translate", {
@@ -67,8 +129,7 @@ export function useRealtimeTranscription({
           })
             .then((res) => res.json())
             .then((data: TranslateResponse) => {
-              // Broadcast translated segment to all clients
-              channel?.send({
+              channelRef.current?.send({
                 type: "broadcast",
                 event: "segment",
                 payload: data.segment,
@@ -85,7 +146,7 @@ export function useRealtimeTranscription({
         }
       }
     },
-    [sourceLang, targetLangs, channel, onInterimTranscript, onFinalTranscript]
+    [] // stable — all values read via refs
   );
 
   const start = useCallback(async () => {
@@ -143,6 +204,13 @@ export function useRealtimeTranscription({
         dc.addEventListener("open", () => resolve(), { once: true });
       });
 
+      // Build instructions with glossary terms and presentation context
+      // so the Realtime API transcribes domain-specific terms accurately
+      const instructions = buildInstructions(
+        glossaryRef.current,
+        contextRef.current
+      );
+
       dc.send(
         JSON.stringify({
           type: "session.update",
@@ -151,11 +219,10 @@ export function useRealtimeTranscription({
             input_audio_transcription: { model: "whisper-1" },
             turn_detection: {
               type: "server_vad",
-              silence_duration_ms: 600,
-              threshold: 0.5,
+              silence_duration_ms: silenceDurationMsRef.current,
+              threshold: vadThresholdRef.current,
             },
-            instructions:
-              "Transcribe the audio accurately. Output only the transcribed text.",
+            instructions,
           },
         })
       );
