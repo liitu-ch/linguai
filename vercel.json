@@ -10,5 +10,8 @@
     "api/realtime-token.ts": {
       "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }
