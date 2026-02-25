@@ -1,10 +1,17 @@
 import { useCallback, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
+import { Languages, ArrowLeft } from "lucide-react";
 import { useChannel } from "~/hooks/useChannel.ts";
 import { useTTS, type TTSMode } from "~/hooks/useTTS.ts";
 import { LanguageSelector } from "~/components/LanguageSelector.tsx";
 import { TranscriptView } from "~/components/TranscriptView.tsx";
 import { TTSControls } from "~/components/TTSControls.tsx";
+import { Button } from "~/components/ui/button.tsx";
+import { Badge } from "~/components/ui/badge.tsx";
+import {
+  Card,
+  CardContent,
+} from "~/components/ui/card.tsx";
 import { LANGUAGES } from "~/lib/languages.ts";
 import type { SupportedLanguage, TranslationSegment } from "~/types/session.ts";
 
@@ -58,8 +65,8 @@ export function Session() {
 
   if (!sessionId) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <p className="text-red-600 text-center">Keine Session-ID</p>
+      <div className="flex min-h-svh items-center justify-center p-4">
+        <p className="text-destructive text-center">Keine Session-ID</p>
       </div>
     );
   }
@@ -67,16 +74,26 @@ export function Session() {
   // Language selection screen
   if (!selectedLang) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="flex min-h-svh items-center justify-center p-4">
         <div className="w-full max-w-sm">
-          <div className="text-center mb-6">
-            <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+          <div className="mb-6 flex flex-col items-center gap-2 text-center">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Languages className="size-5" />
+            </div>
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            <p className="text-sm text-muted-foreground">
+              Wähle deine Sprache für die Übersetzung
+            </p>
           </div>
-          <LanguageSelector
-            languages={targetLangs}
-            selected={selectedLang}
-            onSelect={setSelectedLang}
-          />
+          <Card>
+            <CardContent className="pt-6">
+              <LanguageSelector
+                languages={targetLangs}
+                selected={selectedLang}
+                onSelect={setSelectedLang}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -84,44 +101,48 @@ export function Session() {
 
   // Live transcript view
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-semibold text-gray-900">{title}</h1>
-            <div className="flex items-center gap-2 mt-0.5">
+    <div className="flex min-h-svh flex-col">
+      <header className="sticky top-0 z-10 border-b bg-card/80 px-3 py-2.5 sm:px-4 sm:py-3 backdrop-blur-lg">
+        {/* Mobile: 2 rows, SM+: single row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-semibold leading-none">{title}</h1>
+            <div className="mt-1.5 flex items-center gap-1.5">
               <span
-                className={`h-2 w-2 rounded-full ${
+                className={`size-2 shrink-0 rounded-full ${
                   connectionState === "open"
                     ? "bg-green-500"
                     : connectionState === "error"
-                      ? "bg-red-500"
-                      : "bg-yellow-400"
+                      ? "bg-destructive"
+                      : "bg-yellow-500 animate-pulse"
                 }`}
               />
-              <span className="text-xs text-gray-500">
-                {LANGUAGES[selectedLang].label}
-              </span>
+              <Badge variant="secondary" className="text-xs">
+                {LANGUAGES[selectedLang].flag} {LANGUAGES[selectedLang].label}
+              </Badge>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <TTSControls mode={ttsMode} onModeChange={setTtsMode} />
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2 sm:px-3"
               onClick={() => {
                 setSelectedLang(null);
                 setSegments([]);
               }}
-              className="text-sm text-blue-600 hover:text-blue-800"
             >
-              Sprache ändern
-            </button>
+              <ArrowLeft className="size-4" />
+              <span className="hidden sm:inline">Sprache</span>
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 p-4">
-        <TranscriptView segments={segments} className="h-[calc(100vh-8rem)]" />
+      <main className="flex-1 p-3 sm:p-4">
+        <TranscriptView segments={segments} className="h-[calc(100svh-4.5rem)] sm:h-[calc(100svh-5rem)]" />
       </main>
     </div>
   );

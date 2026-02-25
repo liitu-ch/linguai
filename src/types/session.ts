@@ -1,4 +1,4 @@
-export type SupportedLanguage = "en" | "es" | "pt" | "ms" | "cs" | "sk";
+export type SupportedLanguage = "en" | "de" | "fr" | "it" | "es" | "pt" | "ms" | "cs" | "sk";
 
 export interface TranslationSegment {
   id: string;
