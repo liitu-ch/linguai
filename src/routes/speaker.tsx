@@ -68,6 +68,11 @@ export function Speaker() {
     ","
   ) as SupportedLanguage[];
 
+  // Scroll to top on mount (home page may leave scroll offset)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Create a Supabase channel for broadcasting segments
   useEffect(() => {
     if (!sessionId) return;

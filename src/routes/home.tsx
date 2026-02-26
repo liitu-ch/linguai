@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { nanoid } from "nanoid";
 import {
@@ -7,6 +8,9 @@ import {
   Zap,
   Headphones,
   ArrowDown,
+  Menu,
+  X,
+  Check,
 } from "lucide-react";
 import { CreateSessionForm } from "~/components/CreateSessionForm.tsx";
 import {
@@ -17,10 +21,79 @@ import {
   CardTitle,
 } from "~/components/ui/card.tsx";
 import { Badge } from "~/components/ui/badge.tsx";
+import { Button } from "~/components/ui/button.tsx";
 import type { SupportedLanguage } from "~/types/session.ts";
+
+const NAV_LINKS = [
+  { label: "So funktioniert's", href: "#how-it-works" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "Referenzen", href: "#referenzen" },
+];
+
+const PRICING_PLANS = [
+  {
+    name: "Starter",
+    price: "Kostenlos",
+    period: "",
+    description: "Ideal zum Ausprobieren für kleine Meetings",
+    features: [
+      "1 Session gleichzeitig",
+      "Bis zu 10 Zuhörer",
+      "2 Zielsprachen",
+      "Browser Text-to-Speech",
+      "30 Min. pro Session",
+    ],
+    cta: "Kostenlos starten",
+    highlighted: false,
+  },
+  {
+    name: "Professional",
+    price: "CHF 49",
+    period: "/ Event",
+    description: "Für Konferenzen und Firmenmeetings",
+    features: [
+      "Unbegrenzte Sessions",
+      "Bis zu 100 Zuhörer",
+      "Alle 9 Sprachen",
+      "OpenAI Premium TTS",
+      "6 Stunden pro Session",
+      "Prioritäts-Support",
+    ],
+    cta: "Jetzt buchen",
+    highlighted: true,
+  },
+  {
+    name: "Enterprise",
+    price: "Auf Anfrage",
+    period: "",
+    description: "Für grosse Events und Organisationen",
+    features: [
+      "Alles aus Professional",
+      "Unbegrenzte Zuhörer",
+      "Custom Glossar & Terminologie",
+      "Dedizierte Infrastruktur",
+      "SLA & 24/7 Support",
+      "On-Premise Option",
+    ],
+    cta: "Kontakt aufnehmen",
+    highlighted: false,
+  },
+];
+
+const REFERENCES = [
+  { name: "ETH Zürich", logo: "ETH" },
+  { name: "Universität Bern", logo: "UniBE" },
+  { name: "Swiss Re", logo: "Swiss Re" },
+  { name: "Nestlé", logo: "Nestlé" },
+  { name: "ABB", logo: "ABB" },
+  { name: "UBS", logo: "UBS" },
+  { name: "Novartis", logo: "Novartis" },
+  { name: "Roche", logo: "Roche" },
+];
 
 export function Home() {
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSubmit = (data: {
     title: string;
@@ -37,6 +110,12 @@ export function Home() {
     navigate(`/speaker/${sessionId}?${params}`);
   };
 
+  const handleNavClick = (href: string) => {
+    setMobileMenuOpen(false);
+    const el = document.querySelector(href);
+    el?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <div className="flex min-h-svh flex-col">
       {/* Header */}
@@ -48,10 +127,65 @@ export function Home() {
             </div>
             <span className="text-lg font-bold tracking-tight">LinguAI</span>
           </div>
-          <Badge variant="secondary" className="text-xs">
-            Prototyp
-          </Badge>
+
+          {/* Desktop Nav */}
+          <nav className="hidden items-center gap-1 md:flex">
+            {NAV_LINKS.map((link) => (
+              <button
+                key={link.href}
+                onClick={() => handleNavClick(link.href)}
+                className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                {link.label}
+              </button>
+            ))}
+            <div className="ml-2 h-5 w-px bg-border" />
+            <Button
+              size="sm"
+              className="ml-2"
+              onClick={() => handleNavClick("#session")}
+            >
+              Session starten
+            </Button>
+          </nav>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? "Menü schliessen" : "Menü öffnen"}
+          >
+            {mobileMenuOpen ? (
+              <X className="size-5" />
+            ) : (
+              <Menu className="size-5" />
+            )}
+          </button>
         </div>
+
+        {/* Mobile Nav */}
+        {mobileMenuOpen && (
+          <div className="border-t bg-background px-4 pb-4 pt-2 md:hidden">
+            <nav className="flex flex-col gap-1">
+              {NAV_LINKS.map((link) => (
+                <button
+                  key={link.href}
+                  onClick={() => handleNavClick(link.href)}
+                  className="rounded-md px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  {link.label}
+                </button>
+              ))}
+              <Button
+                size="sm"
+                className="mt-2"
+                onClick={() => handleNavClick("#session")}
+              >
+                Session starten
+              </Button>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Hero */}
@@ -104,29 +238,24 @@ export function Home() {
 
       {/* Main Content */}
       <main className="flex-1">
-        <div className="mx-auto max-w-5xl px-4 py-12 md:py-16">
-          <div className="mx-auto max-w-md">
-            <Card>
-              <CardHeader>
-                <CardTitle>Neue Session erstellen</CardTitle>
-                <CardDescription>
-                  Konfiguriere Sprachen und starte die Live-Übersetzung
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <CreateSessionForm onSubmit={handleSubmit} />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* How it works */}
-          <div className="mt-16">
-            <h2 className="mb-8 text-center text-xl font-semibold tracking-tight">
-              So funktioniert's
-            </h2>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        {/* How it works */}
+        <section id="how-it-works" className="border-b bg-muted/30">
+          <div className="mx-auto max-w-5xl px-4 py-16 md:py-20">
+            <div className="mb-4 text-center">
+              <Badge variant="secondary" className="mb-4">
+                Einfach & schnell
+              </Badge>
+              <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+                So funktioniert's
+              </h2>
+              <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
+                In drei Schritten zur Live-Übersetzung — keine Installation,
+                kein Setup, einfach loslegen.
+              </p>
+            </div>
+            <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
               <div className="rounded-xl border bg-card p-6 text-center">
-                <div className="mx-auto mb-4 flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <span className="text-lg font-bold">1</span>
                 </div>
                 <h3 className="mb-2 font-semibold">Session erstellen</h3>
@@ -136,7 +265,7 @@ export function Home() {
                 </p>
               </div>
               <div className="rounded-xl border bg-card p-6 text-center">
-                <div className="mx-auto mb-4 flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <span className="text-lg font-bold">2</span>
                 </div>
                 <h3 className="mb-2 font-semibold">QR-Code teilen</h3>
@@ -146,7 +275,7 @@ export function Home() {
                 </p>
               </div>
               <div className="rounded-xl border bg-card p-6 text-center">
-                <div className="mx-auto mb-4 flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <span className="text-lg font-bold">3</span>
                 </div>
                 <h3 className="mb-2 font-semibold">Live zuhören</h3>
@@ -157,7 +286,131 @@ export function Home() {
               </div>
             </div>
           </div>
-        </div>
+        </section>
+
+        {/* Session erstellen */}
+        <section id="session" className="border-b">
+          <div className="mx-auto max-w-5xl px-4 py-16 md:py-20">
+            <div className="mx-auto max-w-md">
+              <div className="mb-4 text-center">
+                <Badge variant="secondary" className="mb-4">
+                  Loslegen
+                </Badge>
+                <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+                  Neue Session erstellen
+                </h2>
+                <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
+                  Konfiguriere Sprachen und starte die Live-Übersetzung
+                </p>
+              </div>
+              <Card className="mt-8">
+                <CardContent>
+                  <CreateSessionForm onSubmit={handleSubmit} />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="border-b bg-muted/30">
+          <div className="mx-auto max-w-5xl px-4 py-16 md:py-20">
+            <div className="mb-4 text-center">
+              <Badge variant="secondary" className="mb-4">
+                Pricing
+              </Badge>
+              <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+                Das passende Modell für jedes Event
+              </h2>
+              <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
+                Von kleinen Meetings bis zu grossen Konferenzen — transparent
+                und fair.
+              </p>
+            </div>
+            <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+              {PRICING_PLANS.map((plan) => (
+                <Card
+                  key={plan.name}
+                  className={
+                    plan.highlighted
+                      ? "relative border-primary shadow-md"
+                      : ""
+                  }
+                >
+                  {plan.highlighted && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <Badge>Empfohlen</Badge>
+                    </div>
+                  )}
+                  <CardHeader>
+                    <CardTitle className="text-lg">{plan.name}</CardTitle>
+                    <CardDescription>{plan.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-1 flex-col">
+                    <div className="mb-6">
+                      <span className="text-3xl font-bold">{plan.price}</span>
+                      {plan.period && (
+                        <span className="text-muted-foreground">
+                          {plan.period}
+                        </span>
+                      )}
+                    </div>
+                    <ul className="mb-8 flex-1 space-y-3">
+                      {plan.features.map((feature) => (
+                        <li
+                          key={feature}
+                          className="flex items-start gap-2 text-sm"
+                        >
+                          <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      variant={plan.highlighted ? "default" : "outline"}
+                      className="w-full"
+                    >
+                      {plan.cta}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Referenzen */}
+        <section id="referenzen" className="border-b">
+          <div className="mx-auto max-w-5xl px-4 py-16 md:py-20">
+            <div className="mb-12 text-center">
+              <Badge variant="secondary" className="mb-4">
+                Referenzen
+              </Badge>
+              <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+                Vertraut von führenden Organisationen
+              </h2>
+            </div>
+            {/* Marquee */}
+            <div className="relative overflow-hidden">
+              {/* Fade edges */}
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background to-transparent" />
+
+              <div className="flex animate-marquee gap-12">
+                {[...REFERENCES, ...REFERENCES].map((ref, i) => (
+                  <div
+                    key={`${ref.name}-${i}`}
+                    className="flex h-16 shrink-0 items-center justify-center px-4"
+                  >
+                    <span className="whitespace-nowrap text-xl font-semibold text-muted-foreground/60 transition-colors hover:text-muted-foreground">
+                      {ref.logo}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}

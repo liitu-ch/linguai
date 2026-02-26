@@ -1,5 +1,5 @@
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Share2 } from "lucide-react";
 import { useState } from "react";
 import {
   Card,
