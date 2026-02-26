@@ -17,11 +17,19 @@ interface QRCodeDisplayProps {
 
 export function QRCodeDisplay({ url, sessionId }: QRCodeDisplayProps) {
   const [copied, setCopied] = useState(false);
+  const canShare = typeof navigator !== "undefined" && !!navigator.share;
 
   const copyUrl = async () => {
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareUrl = async () => {
+    await navigator.share({
+      title: `Live-Übersetzung – Session ${sessionId}`,
+      url,
+    });
   };
 
   return (
@@ -47,6 +55,11 @@ export function QRCodeDisplay({ url, sessionId }: QRCodeDisplayProps) {
               <Copy className="size-4" />
             )}
           </Button>
+          {canShare && (
+            <Button variant="outline" size="icon" className="shrink-0" onClick={shareUrl}>
+              <Share2 className="size-4" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

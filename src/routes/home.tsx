@@ -191,7 +191,7 @@ export function Home() {
       {/* Hero */}
       <section className="relative overflow-hidden border-b">
         <img
-          src="https://images.unsplash.com/photo-1507878866276-a947ef722fee?q=80&w=3474&auto=format&fit=crop&ixlib=rb-4.1.0"
+          src="/hero.jpg"
           alt="Schwarze Stuhlreihen in einem Saal — Foto von Jonas Jacobsson auf Unsplash"
           className="absolute inset-0 h-full w-full object-cover"
         />
