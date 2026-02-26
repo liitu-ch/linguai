@@ -55,36 +55,41 @@ export function Home() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b bg-gradient-to-b from-primary/5 via-background to-background">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--color-primary)/0.08,transparent_70%)]" />
+      <section className="relative overflow-hidden border-b">
+        <img
+          src="https://images.unsplash.com/photo-1507878866276-a947ef722fee?q=80&w=3474&auto=format&fit=crop&ixlib=rb-4.1.0"
+          alt="Schwarze Stuhlreihen in einem Saal — Foto von Jonas Jacobsson auf Unsplash"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
         <div className="relative mx-auto max-w-5xl px-4 pb-16 pt-20 text-center md:pb-20 md:pt-28">
           <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg md:size-20">
             <Languages className="size-8 md:size-10" />
           </div>
-          <h1 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight md:text-5xl">
+          <h1 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight text-white md:text-5xl">
             KI-Simultanübersetzung
             <span className="block text-primary">für Live-Events</span>
           </h1>
-          <p className="mx-auto mt-4 max-w-lg text-base text-muted-foreground md:mt-6 md:text-lg">
+          <p className="mx-auto mt-4 max-w-lg text-base text-white/80 md:mt-6 md:text-lg">
             Sprecher reden — Zuhörer verstehen. In Echtzeit, in ihrer Sprache.
             Starte eine Session und teile den QR-Code mit deinem Publikum.
           </p>
 
           {/* Feature pills */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <div className="flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm shadow-sm ring-1 ring-border">
+            <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white shadow-sm ring-1 ring-white/20 backdrop-blur-sm">
               <Mic className="size-3.5 text-primary" />
               Sprache-zu-Text
             </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm shadow-sm ring-1 ring-border">
+            <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white shadow-sm ring-1 ring-white/20 backdrop-blur-sm">
               <Zap className="size-3.5 text-primary" />
               Echtzeit-Übersetzung
             </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm shadow-sm ring-1 ring-border">
+            <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white shadow-sm ring-1 ring-white/20 backdrop-blur-sm">
               <Headphones className="size-3.5 text-primary" />
               Text-to-Speech
             </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm shadow-sm ring-1 ring-border">
+            <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white shadow-sm ring-1 ring-white/20 backdrop-blur-sm">
               <Globe className="size-3.5 text-primary" />
               9 Sprachen
             </div>
@@ -92,7 +97,7 @@ export function Home() {
 
           {/* Scroll indicator */}
           <div className="mt-12 flex justify-center">
-            <ArrowDown className="size-5 animate-bounce text-muted-foreground/50" />
+            <ArrowDown className="size-5 animate-bounce text-white/50" />
           </div>
         </div>
       </section>

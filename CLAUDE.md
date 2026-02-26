@@ -464,3 +464,11 @@ Bei 1 Segment alle ~3 Sekunden, 3 Zielsprachen, 1 Stunde Session:
 | **Gesamt (mit OpenAI TTS)** | | **~$12–26/h** |
 
 Browser TTS ist kostenlos — empfohlen als Default.
+
+---
+
+## 13. Bild-Credits
+
+| Bild | Fotograf | Quelle |
+|------|----------|--------|
+| Hero-Bild (Startseite) | [Jonas Jacobsson](https://unsplash.com/de/@jonasjacobsson) | [Unsplash](https://unsplash.com/de/fotos/schwarzer-stuhl-lot-2xaF4TbjXT0) |
