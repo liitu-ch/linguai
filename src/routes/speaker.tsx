@@ -35,6 +35,7 @@ interface FinalSegment {
   id: string;
   text: string;
   isFinal: boolean;
+  timestampMs: number;
 }
 
 function formatElapsed(seconds: number): string {
@@ -55,7 +56,7 @@ export function Speaker() {
   const [presentationContext, setPresentationContext] = useState("");
 
   // VAD settings
-  const [silenceDurationMs, setSilenceDurationMs] = useState(600);
+  const [silenceDurationMs, setSilenceDurationMs] = useState(300);
   const [vadThreshold, setVadThreshold] = useState(0.5);
 
   // Timer state
@@ -94,7 +95,7 @@ export function Speaker() {
   const handleFinal = useCallback((text: string, seq: number) => {
     setSegments((prev) => [
       ...prev,
-      { id: `final-${seq}`, text, isFinal: true },
+      { id: `final-${seq}`, text, isFinal: true, timestampMs: Date.now() },
     ]);
     setInterimText("");
   }, []);

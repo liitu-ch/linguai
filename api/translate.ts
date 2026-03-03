@@ -52,22 +52,36 @@ async function batchTranslate(
     .map((l) => `"${l}": "${LANG_NAMES[l] || l}"`)
     .join(", ");
 
-  let systemPrompt = `You are a professional simultaneous interpreter.
-Translate the given text from ${LANG_NAMES[sourceLang] || sourceLang} into each of these languages: { ${targetList} }.
-Preserve the speaker's tone and register. Keep translations concise and natural for spoken delivery.
-Respond ONLY with the JSON object mapping language codes to translations.`;
+  let systemPrompt = `You are a specialist simultaneous interpreter with years of experience at international conferences and live events.
+The speaker is presenting in ${LANG_NAMES[sourceLang] || sourceLang}. The incoming audio is transcribed from ${LANG_NAMES[sourceLang] || sourceLang} speech — treat the source language selection as authoritative and interpret the text accordingly, even if individual words could belong to another language.
+Translate the spoken text into each of these languages: { ${targetList} }.
 
-  if (glossary && glossary.length > 0) {
+Key principles:
+- The output will be read aloud via text-to-speech — write translations as they would naturally be spoken in each target language.
+- Preserve the speaker's tone, register, and emphasis.
+- Use natural spoken phrasing, not written/literary style. Avoid overly formal constructions.
+- Keep translations concise and fluid for oral delivery.
+- If uploaded content or a glossary is provided, always consult them — they define the speaker's subject matter and preferred terminology, and are essential for producing accurate translations.
+- Respond ONLY with the JSON object mapping language codes to translations.`;
+
+  const hasGlossary = glossary && glossary.length > 0;
+  const hasContext = context && context.trim();
+
+  if (hasGlossary || hasContext) {
+    systemPrompt += `\n\nWhen the meaning of a phrase is ambiguous or unclear, use the glossary and/or the uploaded context below to determine the correct translation. These resources reflect the speaker's intended terminology and subject matter.`;
+  }
+
+  if (hasGlossary) {
     const entries = glossary.slice(0, 200);
     const glossaryLines = entries
       .map((g) => `  "${g.source}" → "${g.target}"${g.lang ? ` (${g.lang})` : ""}`)
       .join("\n");
-    systemPrompt += `\n\nIMPORTANT — Use this glossary for consistent terminology. When you encounter these terms, always use the specified translations:\n${glossaryLines}`;
+    systemPrompt += `\n\nGLOSSARY — Always use these specified translations when you encounter the listed terms:\n${glossaryLines}`;
   }
 
-  if (context && context.trim()) {
+  if (hasContext) {
     const trimmedContext = context.trim().slice(0, 8000);
-    systemPrompt += `\n\nContext from the speaker's presentation (use this to improve translation accuracy and understand domain-specific terms):\n---\n${trimmedContext}\n---`;
+    systemPrompt += `\n\nUPLOADED CONTENT — Use this as reference to understand the topic, resolve ambiguities, and translate domain-specific terms accurately:\n---\n${trimmedContext}\n---`;
   }
 
   const completion = await openai.chat.completions.create({

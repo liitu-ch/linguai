@@ -6,6 +6,12 @@ interface TranscriptSegment {
   id: string;
   text: string;
   isFinal: boolean;
+  timestampMs?: number;
+}
+
+function formatTime(ms: number): string {
+  const date = new Date(ms);
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 interface TranscriptViewProps {
@@ -41,15 +47,21 @@ export function TranscriptView({
 
       <div className="space-y-2.5 sm:space-y-3">
         {segments.map((seg) => (
-          <p
-            key={seg.id}
-            className={cn(
-              "text-[15px] sm:text-base leading-relaxed",
-              seg.isFinal ? "text-foreground" : "text-muted-foreground"
+          <div key={seg.id} className="space-y-0.5">
+            {seg.timestampMs && (
+              <span className="text-[10px] text-muted-foreground/60">
+                {formatTime(seg.timestampMs)}
+              </span>
             )}
-          >
-            {seg.text}
-          </p>
+            <p
+              className={cn(
+                "text-[15px] sm:text-base leading-relaxed",
+                seg.isFinal ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              {seg.text}
+            </p>
+          </div>
         ))}
 
         {interimText && (

@@ -18,6 +18,7 @@ interface DisplaySegment {
   id: string;
   text: string;
   isFinal: boolean;
+  timestampMs: number;
 }
 
 export function Session() {
@@ -53,7 +54,7 @@ export function Session() {
 
       setSegments((prev) => {
         if (prev.some((s) => s.id === segment.id)) return prev;
-        return [...prev, { id: segment.id, text, isFinal: segment.isFinal }];
+        return [...prev, { id: segment.id, text, isFinal: segment.isFinal, timestampMs: segment.timestampMs || Date.now() }];
       });
 
       enqueue(text, segment.id, segment.isFinal);

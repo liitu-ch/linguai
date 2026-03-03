@@ -152,3 +152,54 @@
 @utility animate-marquee {
   animation: marquee 30s linear infinite;
 }
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.5s ease-out forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@utility animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.15; }
+  50%       { opacity: 0.3; }
+}
+
+@utility animate-glow {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@utility animate-cursor {
+  animation: cursor-blink 0.9s step-end infinite;
+}

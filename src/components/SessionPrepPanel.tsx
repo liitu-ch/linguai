@@ -32,7 +32,7 @@ export function SessionPrepPanel({
 
   const hasGlossary = glossary.length > 0;
   const hasContext = context.length > 0;
-  const hasCustomVad = silenceDurationMs !== 600 || vadThreshold !== 0.5;
+  const hasCustomVad = silenceDurationMs !== 300 || vadThreshold !== 0.5;
 
   const disabled = isRecording;
 

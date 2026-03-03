@@ -48,7 +48,7 @@ export function useRealtimeTranscription({
   channel,
   glossary,
   context,
-  silenceDurationMs = 600,
+  silenceDurationMs = 300,
   vadThreshold = 0.5,
   onInterimTranscript,
   onFinalTranscript,
