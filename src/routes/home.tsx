@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Badge } from "~/components/ui/badge.tsx";
 import { Button } from "~/components/ui/button.tsx";
+import { ThemeToggle } from "~/components/ThemeToggle.tsx";
 import {
   Card,
   CardContent,
@@ -361,13 +362,13 @@ export function Home() {
   return (
     <div className="flex min-h-svh flex-col">
       {/* ── Header ────────────────────────────────────────────────── */}
-      <header className="fixed top-0 z-50 w-full border-b border-white/5 bg-slate-950/80 backdrop-blur-xl">
+      <header className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-500 text-white">
               <Languages className="size-4" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-white">LinguAI</span>
+            <span className="text-lg font-bold tracking-tight text-foreground">LinguAI</span>
           </div>
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -375,12 +376,13 @@ export function Home() {
               <button
                 key={link.href}
                 onClick={() => scrollTo(link.href)}
-                className="rounded-md px-3 py-1.5 text-sm text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+                className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
               >
                 {link.label}
               </button>
             ))}
-            <div className="mx-2 h-5 w-px bg-white/10" />
+            <div className="mx-2 h-5 w-px bg-border" />
+            <ThemeToggle className="text-muted-foreground hover:bg-muted/40 hover:text-foreground" />
             {user ? (
               <Button size="sm" onClick={() => navigate("/dashboard")}>
                 Dashboard <ChevronRight className="ml-1 size-3" />
@@ -390,7 +392,7 @@ export function Home() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-white/70 hover:text-white hover:bg-white/5"
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted/40"
                   onClick={() => navigate("/login")}
                 >
                   Anmelden
@@ -402,29 +404,32 @@ export function Home() {
             )}
           </nav>
 
-          <button
-            className="flex size-9 items-center justify-center rounded-md text-white/60 transition-colors hover:bg-white/5 hover:text-white md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Menü"
-          >
-            {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-          </button>
+          <div className="flex items-center gap-1 md:hidden">
+            <ThemeToggle className="text-muted-foreground hover:bg-muted/40 hover:text-foreground" />
+            <button
+              className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Menü"
+            >
+              {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
+          </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="border-t border-white/5 bg-slate-950 px-4 pb-4 pt-2 md:hidden">
+          <div className="border-t border-border bg-background px-4 pb-4 pt-2 md:hidden">
             <nav className="flex flex-col gap-1">
               {NAV_LINKS.map((link) => (
                 <button
                   key={link.href}
                   onClick={() => scrollTo(link.href)}
-                  className="rounded-md px-3 py-2 text-left text-sm text-white/60 hover:bg-white/5 hover:text-white"
+                  className="rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 >
                   {link.label}
                 </button>
               ))}
               <div className="mt-2 flex flex-col gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigate("/login")} className="border-white/10 text-white hover:bg-white/5">
+                <Button variant="outline" size="sm" onClick={() => navigate("/login")}>
                   Anmelden
                 </Button>
                 <Button size="sm" onClick={handleCTA}>
@@ -437,7 +442,7 @@ export function Home() {
       </header>
 
       {/* ── Hero ──────────────────────────────────────────────────── */}
-      <section className="relative min-h-svh overflow-hidden bg-slate-950 pt-14">
+      <section className="relative min-h-svh overflow-hidden bg-background pt-14">
         {/* Decorative blobs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 left-1/2 size-[600px] -translate-x-1/2 rounded-full bg-indigo-600/20 blur-[120px] animate-glow" />
@@ -462,7 +467,7 @@ export function Home() {
           </div>
 
           {/* Headline */}
-          <h1 className="animate-fade-up mx-auto max-w-4xl text-4xl font-extrabold tracking-tight text-white md:text-6xl lg:text-7xl" style={{ animationDelay: "0.1s", opacity: 0 }}>
+          <h1 className="animate-fade-up mx-auto max-w-4xl text-4xl font-extrabold tracking-tight text-foreground md:text-6xl lg:text-7xl" style={{ animationDelay: "0.1s", opacity: 0 }}>
             Simultandolmetschen
             <span className="block bg-gradient-to-r from-indigo-400 via-blue-300 to-violet-400 bg-clip-text text-transparent">
               für jeden Event
@@ -470,7 +475,7 @@ export function Home() {
           </h1>
 
           {/* Subhead */}
-          <p className="animate-fade-up mx-auto mt-6 max-w-xl text-base text-white/60 md:text-lg" style={{ animationDelay: "0.2s", opacity: 0 }}>
+          <p className="animate-fade-up mx-auto mt-6 max-w-xl text-base text-muted-foreground md:text-lg" style={{ animationDelay: "0.2s", opacity: 0 }}>
             Sprecher reden auf Englisch — 87 Zuhörer folgen auf Spanisch, Portugiesisch oder
             Malaiisch. In Echtzeit. Ohne Dolmetscher. Ohne Equipment. Einfach der QR-Code.
           </p>
@@ -488,7 +493,7 @@ export function Home() {
             <Button
               size="lg"
               variant="outline"
-              className="gap-2 border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="gap-2 border-border bg-muted/40 text-foreground hover:bg-muted/60"
               onClick={() => scrollTo("#demo")}
             >
               <Play className="size-4" />
@@ -497,7 +502,7 @@ export function Home() {
           </div>
 
           {/* Stats */}
-          <div className="animate-fade-up mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-white/40" style={{ animationDelay: "0.4s", opacity: 0 }}>
+          <div className="animate-fade-up mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground" style={{ animationDelay: "0.4s", opacity: 0 }}>
             {[
               { value: "9", label: "Sprachen" },
               { value: "<2s", label: "Latenz" },
@@ -505,7 +510,7 @@ export function Home() {
               { value: "4-in-1", label: "Übersetzung, Captions, Transkript, Summary" },
             ].map((stat) => (
               <div key={stat.label} className="flex items-baseline gap-1.5">
-                <span className="text-xl font-bold text-white">{stat.value}</span>
+                <span className="text-xl font-bold text-foreground">{stat.value}</span>
                 <span>{stat.label}</span>
               </div>
             ))}
@@ -577,16 +582,16 @@ export function Home() {
         </section>
 
         {/* ── Live Demo ─────────────────────────────────────────────── */}
-        <section id="demo" className="border-b bg-slate-950 py-20 md:py-28">
+        <section id="demo" className="border-b bg-muted/30 py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
             <div className="mb-16 text-center">
-              <Badge className="mb-4 border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+              <Badge className="mb-4 border-indigo-500/30 bg-indigo-500/10 text-indigo-400 dark:text-indigo-300">
                 Live Demo
               </Badge>
-              <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
                 Sieh es in Aktion
               </h2>
-              <p className="mx-auto mt-4 max-w-lg text-white/50">
+              <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
                 So sieht LinguAI in der Praxis aus. Der Speaker spricht Englisch —
                 Zuhörer wählen ihre Sprache und sehen die Übersetzung sofort.
               </p>
@@ -746,16 +751,16 @@ export function Home() {
         </section>
 
         {/* ── CTA Banner ────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden bg-slate-950 py-20 md:py-28">
+        <section className="relative overflow-hidden bg-background py-20 md:py-28">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 size-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-600/20 blur-[100px]" />
+            <div className="absolute left-1/2 top-1/2 size-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-600/15 blur-[100px]" />
           </div>
           <div className="relative mx-auto max-w-2xl px-4 text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+            <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
               Bereit für dein erstes Event?
             </h2>
-            <p className="mx-auto mt-4 max-w-md text-white/50">
-              Starte kostenlos, kein Kreditkarte nötig. In 30 Sekunden bist du bereit.
+            <p className="mx-auto mt-4 max-w-md text-muted-foreground">
+              Starte kostenlos, keine Kreditkarte nötig. In 30 Sekunden bist du bereit.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Button
@@ -769,7 +774,6 @@ export function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                className="border-white/10 bg-white/5 text-white hover:bg-white/10"
                 onClick={() => scrollTo("#demo")}
               >
                 Demo ansehen

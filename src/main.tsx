@@ -8,10 +8,12 @@ import { Settings } from "~/routes/settings.tsx";
 import { Speaker } from "~/routes/speaker.tsx";
 import { Session } from "~/routes/session.tsx";
 import { AuthGuard } from "~/components/AuthGuard.tsx";
+import { ThemeProvider } from "~/contexts/ThemeContext.tsx";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
+    <ThemeProvider>
     <BrowserRouter>
       <Routes>
         {/* Public */}
@@ -46,5 +48,6 @@ createRoot(document.getElementById("root")!).render(
         />
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   </StrictMode>
 );

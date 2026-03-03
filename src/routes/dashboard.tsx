@@ -3,11 +3,10 @@ import { useNavigate, Link } from "react-router";
 import {
   Languages,
   Plus,
-  Radio,
+  Play,
   Clock,
   LogOut,
   Share2,
-  ExternalLink,
   Trash2,
   Globe,
   Users,
@@ -16,9 +15,13 @@ import {
   X,
   ArrowRight,
   Check,
+  Settings2,
+  Radio,
+  UserCircle,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { CreateSessionForm } from "~/components/CreateSessionForm.tsx";
+import { ThemeToggle } from "~/components/ThemeToggle.tsx";
 import { Button } from "~/components/ui/button.tsx";
 import { Badge } from "~/components/ui/badge.tsx";
 import { useAuth } from "~/hooks/useAuth.ts";
@@ -145,30 +148,36 @@ export function Dashboard() {
     navigate("/");
   };
 
-  const base =
-    import.meta.env.VITE_APP_URL ||
-    (typeof window !== "undefined" ? window.location.origin : "");
-
   return (
     <div className="flex min-h-svh flex-col bg-background">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Languages className="size-4" />
+            <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-500">
+              <Languages className="size-4 text-white" />
             </div>
-            <span className="text-lg font-bold tracking-tight">LinguAI</span>
+            <span className="text-lg font-bold tracking-tight text-foreground">LinguAI</span>
           </Link>
 
           <div className="flex items-center gap-2">
             <span className="hidden max-w-48 truncate text-sm text-muted-foreground sm:block">
               {user?.email}
             </span>
+            <ThemeToggle className="text-muted-foreground hover:bg-muted/40 hover:text-foreground" />
             <Button
               variant="ghost"
               size="icon"
-              className="size-8"
+              className="size-8 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+              onClick={() => navigate("/dashboard/settings")}
+              title="Profilverwaltung"
+            >
+              <UserCircle className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
               onClick={handleSignOut}
               title="Abmelden"
             >
@@ -182,14 +191,19 @@ export function Dashboard() {
         {/* ── Page header ── */}
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Erstelle und verwalte deine Übersetzungs-Sessions.
             </p>
           </div>
           <Button
             onClick={() => setShowForm((v) => !v)}
-            className={cn("gap-2", showForm && "bg-muted text-foreground hover:bg-muted/80")}
+            className={cn(
+              "gap-2",
+              showForm
+                ? "bg-muted text-foreground hover:bg-muted/80"
+                : "bg-indigo-500 text-white hover:bg-indigo-400"
+            )}
           >
             {showForm ? (
               <>
@@ -207,18 +221,18 @@ export function Dashboard() {
 
         {/* ── Create Session Form ── */}
         {showForm && (
-          <div className="mb-8 animate-fade-up overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-lg shadow-primary/5">
+          <div className="mb-8 animate-fade-up overflow-hidden rounded-2xl border border-border bg-card shadow-lg shadow-black/5">
             {/* Form header */}
-            <div className="flex items-start justify-between border-b px-6 py-5">
+            <div className="flex items-start justify-between border-b border-border px-6 py-5">
               <div>
-                <h2 className="font-semibold">Neue Session erstellen</h2>
+                <h2 className="font-semibold text-foreground">Neue Session erstellen</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   Konfiguriere Sprachen und starte die Live-Übersetzung.
                 </p>
               </div>
               <button
                 onClick={() => setShowForm(false)}
-                className="ml-4 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="ml-4 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
               >
                 <X className="size-4" />
               </button>
@@ -248,16 +262,19 @@ export function Dashboard() {
             </Button>
           </div>
         ) : events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 py-20 text-center">
-            <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary/10">
-              <Radio className="size-8 text-primary" />
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/10 py-20 text-center">
+            <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-indigo-500/10">
+              <Radio className="size-8 text-indigo-400" />
             </div>
-            <h2 className="font-semibold">Noch keine Sessions</h2>
+            <h2 className="font-semibold text-foreground">Noch keine Sessions</h2>
             <p className="mt-1.5 max-w-xs text-sm text-muted-foreground">
               Erstelle deine erste Übersetzungs-Session und teile den QR-Code
               mit deinem Publikum.
             </p>
-            <Button className="mt-6 gap-2" onClick={() => setShowForm(true)}>
+            <Button
+              className="mt-6 gap-2 bg-indigo-500 text-white hover:bg-indigo-400"
+              onClick={() => setShowForm(true)}
+            >
               <Plus className="size-4" />
               Erste Session erstellen
             </Button>
@@ -275,31 +292,32 @@ export function Dashboard() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {events.map((event) => {
-                const sessionUrl = `${base}/session/${event.id}?${new URLSearchParams({
-                  title: event.title,
-                  targets: event.target_languages.join(","),
-                })}`;
                 const sourceLang = event.source_lang as SupportedLanguage;
                 const targetLangs = event.target_languages as SupportedLanguage[];
+                const speakerParams = new URLSearchParams({
+                  title: event.title,
+                  source: event.source_lang,
+                  targets: event.target_languages.join(","),
+                });
 
                 return (
                   <div
                     key={event.id}
-                    className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card transition-shadow hover:shadow-md"
+                    className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all hover:shadow-md"
                   >
                     {/* Accent top border */}
-                    <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+                    <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-indigo-500/40 via-indigo-500 to-indigo-500/40" />
 
                     <div className="flex flex-1 flex-col p-5 pt-6">
                       {/* Title + delete */}
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold leading-tight">
+                        <h3 className="font-semibold leading-tight text-foreground">
                           {event.title}
                         </h3>
                         <button
                           onClick={() => handleDelete(event.id)}
                           disabled={deletingId === event.id}
-                          className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
+                          className="shrink-0 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
                           title="Session löschen"
                         >
                           {deletingId === event.id ? (
@@ -318,20 +336,19 @@ export function Dashboard() {
 
                       {/* Language flow */}
                       <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                        <Badge variant="secondary" className="gap-1 text-xs">
+                        <span className="flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
                           <Globe className="size-3" />
                           {LANGUAGES[sourceLang]?.flag}{" "}
                           {LANGUAGES[sourceLang]?.label}
-                        </Badge>
-                        <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                        </span>
+                        <ArrowRight className="size-3 shrink-0 text-muted-foreground/40" />
                         {targetLangs.map((lang) => (
-                          <Badge
+                          <span
                             key={lang}
-                            variant="outline"
-                            className="text-xs"
+                            className="rounded-md border border-border bg-muted/20 px-2 py-0.5 text-xs text-muted-foreground"
                           >
                             {LANGUAGES[lang]?.flag} {LANGUAGES[lang]?.label}
-                          </Badge>
+                          </span>
                         ))}
                       </div>
 
@@ -344,21 +361,33 @@ export function Dashboard() {
 
                       {/* Actions */}
                       <div className="mt-auto flex gap-2 pt-4">
+                        {/* Open session — view transcript + resume */}
                         <Button
                           size="sm"
-                          className="flex-1 gap-1.5"
-                          onClick={() => {
-                            const params = new URLSearchParams({
-                              title: event.title,
-                              source: event.source_lang,
-                              targets: event.target_languages.join(","),
-                            });
-                            navigate(`/speaker/${event.id}?${params}`);
-                          }}
+                          className="flex-1 gap-1.5 bg-indigo-500 text-white hover:bg-indigo-400"
+                          onClick={() =>
+                            navigate(`/speaker/${event.id}?${speakerParams}`)
+                          }
                         >
-                          <Radio className="size-3.5" />
-                          Starten
+                          <Play className="size-3.5" />
+                          Öffnen
                         </Button>
+
+                        {/* Session settings / prep */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            navigate(
+                              `/speaker/${event.id}?prep=1&${speakerParams}`
+                            )
+                          }
+                          title="Einstellungen, Unterlagen & Glossar"
+                        >
+                          <Settings2 className="size-3.5" />
+                        </Button>
+
+                        {/* Copy listener link */}
                         <Button
                           size="sm"
                           variant="outline"
@@ -366,18 +395,10 @@ export function Dashboard() {
                           title="Zuhörer-Link kopieren"
                         >
                           {copiedId === event.id ? (
-                            <Check className="size-3.5 text-primary" />
+                            <Check className="size-3.5 text-indigo-400" />
                           ) : (
                             <Share2 className="size-3.5" />
                           )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(sessionUrl, "_blank")}
-                          title="Zuhörer-Ansicht öffnen"
-                        >
-                          <ExternalLink className="size-3.5" />
                         </Button>
                       </div>
                     </div>
@@ -390,7 +411,7 @@ export function Dashboard() {
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t bg-muted/20">
+      <footer className="border-t border-border bg-muted/20">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Languages className="size-3.5" />

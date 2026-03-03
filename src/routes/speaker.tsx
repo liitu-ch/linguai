@@ -23,6 +23,7 @@ import { QRCodeDisplay } from "~/components/QRCodeDisplay.tsx";
 import { RecordingControls } from "~/components/RecordingControls.tsx";
 import { TranscriptView } from "~/components/TranscriptView.tsx";
 import { SessionPrepPanel } from "~/components/SessionPrepPanel.tsx";
+import { ThemeToggle } from "~/components/ThemeToggle.tsx";
 import { Button } from "~/components/ui/button.tsx";
 import { LANGUAGES } from "~/lib/languages.ts";
 import { supabase } from "~/lib/supabase.ts";
@@ -69,6 +70,12 @@ export function Speaker() {
   const targetLanguages = (searchParams.get("targets") || "es,pt,ms").split(
     ","
   ) as SupportedLanguage[];
+
+  // Auto-open prep modal when navigated from dashboard with ?prep=1
+  useEffect(() => {
+    if (searchParams.get("prep") === "1") setShowPrepModal(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -165,7 +172,7 @@ export function Speaker() {
 
   if (!sessionId) {
     return (
-      <div className="dark flex min-h-svh items-center justify-center bg-slate-950">
+      <div className="flex min-h-svh items-center justify-center bg-background">
         <p className="text-destructive">Keine Session-ID</p>
       </div>
     );
@@ -180,16 +187,16 @@ export function Speaker() {
   const isRecording = status === "active" || status === "connecting";
 
   return (
-    <div className="dark flex min-h-svh flex-col bg-slate-950">
+    <div className="flex min-h-svh flex-col bg-background">
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
           <Link to="/dashboard">
             <Button
               variant="ghost"
               size="icon"
-              className="size-8 text-white/50 hover:bg-white/5 hover:text-white"
+              className="size-8 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
             >
               <ArrowLeft className="size-4" />
             </Button>
@@ -202,7 +209,7 @@ export function Speaker() {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-white">
+                <p className="truncate text-sm font-semibold text-foreground">
                   {title}
                 </p>
                 {isRecording && (
@@ -212,7 +219,7 @@ export function Speaker() {
                   </span>
                 )}
               </div>
-              <div className="mt-0.5 hidden items-center gap-1.5 text-[11px] text-white/40 sm:flex">
+              <div className="mt-0.5 hidden items-center gap-1.5 text-[11px] text-muted-foreground sm:flex">
                 <span>
                   {LANGUAGES[sourceLang]?.flag} {LANGUAGES[sourceLang]?.label}
                 </span>
@@ -226,21 +233,24 @@ export function Speaker() {
             </div>
           </div>
 
-          {/* Right side: listener pill + settings icon + recording (desktop) */}
+          {/* Right side: listener pill + theme toggle + settings icon + recording (desktop) */}
           <div className="flex items-center gap-2">
             {/* Listener count */}
-            <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-              <Users className="size-3.5 text-white/40" />
-              <span className="text-sm font-medium tabular-nums text-white/60">
+            <div className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5">
+              <Users className="size-3.5 text-muted-foreground" />
+              <span className="text-sm font-medium tabular-nums text-muted-foreground">
                 {listenerCount}
               </span>
             </div>
+
+            {/* Theme toggle */}
+            <ThemeToggle className="text-muted-foreground hover:bg-muted/40 hover:text-foreground" />
 
             {/* Settings / Prep modal trigger */}
             <button
               onClick={() => setShowPrepModal(true)}
               title="Session-Einstellungen"
-              className="relative flex size-9 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/5 hover:text-white"
+              className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
             >
               <Settings2 className="size-4" />
               {settingsBadgeCount > 0 && (
@@ -275,15 +285,15 @@ export function Speaker() {
               {/* Transcript panel */}
               <div>
                 {!isRecording && segments.length === 0 ? (
-                  <div className="flex h-[calc(100svh-10rem)] flex-col items-center justify-center gap-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+                  <div className="flex h-[calc(100svh-10rem)] flex-col items-center justify-center gap-6 rounded-2xl border border-border bg-muted/20">
                     <div className="flex size-20 items-center justify-center rounded-2xl bg-indigo-500/20">
                       <Mic className="size-10 text-indigo-400" />
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-semibold text-white">
+                      <p className="text-lg font-semibold text-foreground">
                         Bereit für die Aufnahme
                       </p>
-                      <p className="mt-2 max-w-sm text-sm text-white/40">
+                      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
                         Starte die Aufnahme — das Live-Transkript erscheint
                         hier. Der QR-Code ist bereits aktiv.
                       </p>
@@ -303,8 +313,8 @@ export function Speaker() {
                 <QRCodeDisplay url={sessionUrl} sessionId={sessionId} />
 
                 {/* Stats */}
-                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-                  <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-white/30">
+                <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                  <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
                     <BarChart3 className="size-3.5" />
                     Statistik
                   </div>
@@ -329,18 +339,18 @@ export function Speaker() {
                       },
                     ].map(({ icon: Icon, label, value }) => (
                       <div key={label}>
-                        <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-white/30">
+                        <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
                           <Icon className="size-3" />
                           {label}
                         </div>
-                        <p className="mt-0.5 text-xl font-bold tabular-nums text-white">
+                        <p className="mt-0.5 text-xl font-bold tabular-nums text-foreground">
                           {value}
                         </p>
                       </div>
                     ))}
                   </div>
                   {wpm > 0 && (
-                    <div className="mt-3 border-t border-white/10 pt-3 text-xs text-white/30">
+                    <div className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground/70">
                       ~{wpm} Wörter/Min
                     </div>
                   )}
@@ -353,8 +363,8 @@ export function Speaker() {
         {/* ── Mobile layout (< md) ── */}
         <div className="md:hidden">
           {/* Tab switcher */}
-          <div className="border-b border-white/10 px-4 py-2.5">
-            <div className="flex gap-1.5 rounded-xl bg-white/5 p-1">
+          <div className="border-b border-border px-4 py-2.5">
+            <div className="flex gap-1.5 rounded-xl bg-muted/40 p-1">
               {(
                 [
                   { id: "qr" as const, icon: QrCode, label: "QR-Code" },
@@ -371,8 +381,8 @@ export function Speaker() {
                   className={cn(
                     "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all",
                     mobileTab === tab.id
-                      ? "bg-white/15 text-white shadow-sm"
-                      : "text-white/40 hover:text-white/60"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground/70"
                   )}
                 >
                   <tab.icon className="size-4" />
@@ -387,7 +397,7 @@ export function Speaker() {
             {mobileTab === "qr" ? (
               <div className="space-y-3 p-4">
                 <QRCodeDisplay url={sessionUrl} sessionId={sessionId} />
-                <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.02] py-3 text-sm text-white/40">
+                <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-muted/20 py-3 text-sm text-muted-foreground">
                   <Users className="size-4" />
                   {listenerCount === 0
                     ? "Noch keine Zuhörer verbunden"
@@ -397,9 +407,9 @@ export function Speaker() {
             ) : (
               <div className="p-4">
                 {!isRecording && segments.length === 0 ? (
-                  <div className="flex h-[50svh] flex-col items-center justify-center gap-4 rounded-2xl border border-white/10 bg-white/[0.02]">
+                  <div className="flex h-[50svh] flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-muted/20">
                     <Mic className="size-8 text-indigo-400 opacity-70" />
-                    <p className="text-sm text-white/40">
+                    <p className="text-sm text-muted-foreground">
                       Starte die Aufnahme unten
                     </p>
                   </div>
@@ -417,7 +427,7 @@ export function Speaker() {
       </main>
 
       {/* ── Mobile fixed bottom recording controls ── */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-white/10 bg-slate-950/95 backdrop-blur-xl px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-xl px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
         <RecordingControls
           status={status}
           onStart={start}
@@ -436,18 +446,18 @@ export function Speaker() {
           />
 
           {/* Panel — centered on desktop, bottom-sheet feel on mobile */}
-          <div className="fixed inset-x-4 top-[5svh] z-50 mx-auto max-w-2xl overflow-hidden rounded-2xl border border-white/15 bg-slate-900 shadow-2xl shadow-black/60 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full">
+          <div className="fixed inset-x-4 top-[5svh] z-50 mx-auto max-w-2xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-black/30 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full">
             {/* Modal header */}
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-500/20">
                   <Settings2 className="size-4 text-indigo-400" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-white">
+                  <h2 className="text-sm font-semibold text-foreground">
                     Session-Vorbereitung
                   </h2>
-                  <p className="text-xs text-white/40">
+                  <p className="text-xs text-muted-foreground">
                     Glossar, Kontext & Transkriptions-Einstellungen
                   </p>
                 </div>
@@ -469,7 +479,7 @@ export function Speaker() {
                 )}
                 <button
                   onClick={() => setShowPrepModal(false)}
-                  className="flex size-8 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+                  className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                 >
                   <X className="size-4" />
                 </button>
