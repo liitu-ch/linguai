@@ -13,23 +13,20 @@ import {
   Users,
   Loader2,
   AlertCircle,
+  X,
+  ArrowRight,
+  Check,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { CreateSessionForm } from "~/components/CreateSessionForm.tsx";
 import { Button } from "~/components/ui/button.tsx";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "~/components/ui/card.tsx";
 import { Badge } from "~/components/ui/badge.tsx";
 import { useAuth } from "~/hooks/useAuth.ts";
 import { supabase } from "~/lib/supabase.ts";
 import { LANGUAGES } from "~/lib/languages.ts";
 import type { SupportedLanguage } from "~/types/session.ts";
 import type { EventRow } from "~/types/database.ts";
+import { cn } from "~/lib/utils.ts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -57,7 +54,7 @@ export function Dashboard() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // ── Load events from Supabase ────────────────────────────────────────────────
+  // ── Load events ──────────────────────────────────────────────────────────
   const fetchEvents = useCallback(async () => {
     if (!user) return;
     setLoadingEvents(true);
@@ -80,7 +77,7 @@ export function Dashboard() {
     fetchEvents();
   }, [fetchEvents]);
 
-  // ── Create event ─────────────────────────────────────────────────────────────
+  // ── Create event ─────────────────────────────────────────────────────────
   const handleCreateSession = async (data: {
     title: string;
     sourceLang: SupportedLanguage;
@@ -102,7 +99,6 @@ export function Dashboard() {
     });
 
     if (error) {
-      // Still navigate — event might have been created despite the error
       console.error("Event insert error:", error.message);
     }
 
@@ -115,7 +111,7 @@ export function Dashboard() {
     navigate(`/speaker/${id}?${params}`);
   };
 
-  // ── Delete event ─────────────────────────────────────────────────────────────
+  // ── Delete event ─────────────────────────────────────────────────────────
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     const { error } = await supabase
@@ -130,14 +126,16 @@ export function Dashboard() {
     setDeletingId(null);
   };
 
-  // ── Copy attendee link ────────────────────────────────────────────────────────
+  // ── Copy link ────────────────────────────────────────────────────────────
   const handleCopyLink = async (event: EventRow) => {
     const base = import.meta.env.VITE_APP_URL || window.location.origin;
     const params = new URLSearchParams({
       title: event.title,
       targets: event.target_languages.join(","),
     });
-    await navigator.clipboard.writeText(`${base}/session/${event.id}?${params}`);
+    await navigator.clipboard.writeText(
+      `${base}/session/${event.id}?${params}`
+    );
     setCopiedId(event.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -153,7 +151,7 @@ export function Dashboard() {
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
-      {/* ── Header ──────────────────────────────────────────────────── */}
+      {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
@@ -181,41 +179,57 @@ export function Dashboard() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        {/* ── Page header ──────────────────────────────────────────────── */}
-        <div className="mb-8 flex items-center justify-between">
+        {/* ── Page header ── */}
+        <div className="mb-8 flex items-end justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Erstelle und verwalte deine Übersetzungs-Sessions.
             </p>
           </div>
-          <Button onClick={() => setShowForm(!showForm)} className="gap-2">
-            <Plus className="size-4" />
-            Neue Session
+          <Button
+            onClick={() => setShowForm((v) => !v)}
+            className={cn("gap-2", showForm && "bg-muted text-foreground hover:bg-muted/80")}
+          >
+            {showForm ? (
+              <>
+                <X className="size-4" />
+                Abbrechen
+              </>
+            ) : (
+              <>
+                <Plus className="size-4" />
+                Neue Session
+              </>
+            )}
           </Button>
         </div>
 
-        {/* ── Create Session Form ───────────────────────────────────────── */}
+        {/* ── Create Session Form ── */}
         {showForm && (
-          <Card className="mb-8 border-primary/20 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Plus className="size-4" />
-                Neue Session erstellen
-              </CardTitle>
-              <CardDescription>
-                Konfiguriere Sprachen und starte die Live-Übersetzung.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="max-w-md">
-                <CreateSessionForm onSubmit={handleCreateSession} />
+          <div className="mb-8 animate-fade-up overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-lg shadow-primary/5">
+            {/* Form header */}
+            <div className="flex items-start justify-between border-b px-6 py-5">
+              <div>
+                <h2 className="font-semibold">Neue Session erstellen</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Konfiguriere Sprachen und starte die Live-Übersetzung.
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <button
+                onClick={() => setShowForm(false)}
+                className="ml-4 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="px-6 py-6">
+              <CreateSessionForm onSubmit={handleCreateSession} />
+            </div>
+          </div>
         )}
 
-        {/* ── Events list ───────────────────────────────────────────────── */}
+        {/* ── Events list ── */}
         {loadingEvents ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -243,10 +257,7 @@ export function Dashboard() {
               Erstelle deine erste Übersetzungs-Session und teile den QR-Code
               mit deinem Publikum.
             </p>
-            <Button
-              className="mt-6 gap-2"
-              onClick={() => setShowForm(true)}
-            >
+            <Button className="mt-6 gap-2" onClick={() => setShowForm(true)}>
               <Plus className="size-4" />
               Erste Session erstellen
             </Button>
@@ -254,7 +265,7 @@ export function Dashboard() {
         ) : (
           <>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Letzte Sessions
               </h2>
               <span className="text-xs text-muted-foreground">
@@ -272,25 +283,23 @@ export function Dashboard() {
                 const targetLangs = event.target_languages as SupportedLanguage[];
 
                 return (
-                  <Card
+                  <div
                     key={event.id}
-                    className="group relative flex flex-col transition-shadow hover:shadow-md"
+                    className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card transition-shadow hover:shadow-md"
                   >
-                    <CardHeader className="pb-3">
+                    {/* Accent top border */}
+                    <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+
+                    <div className="flex flex-1 flex-col p-5 pt-6">
+                      {/* Title + delete */}
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="truncate text-base">
-                            {event.title}
-                          </CardTitle>
-                          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Clock className="size-3" />
-                            {timeAgo(event.created_at)}
-                          </div>
-                        </div>
+                        <h3 className="font-semibold leading-tight">
+                          {event.title}
+                        </h3>
                         <button
                           onClick={() => handleDelete(event.id)}
                           disabled={deletingId === event.id}
-                          className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
+                          className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
                           title="Session löschen"
                         >
                           {deletingId === event.id ? (
@@ -300,33 +309,41 @@ export function Dashboard() {
                           )}
                         </button>
                       </div>
-                    </CardHeader>
 
-                    <CardContent className="flex flex-1 flex-col gap-3">
-                      {/* Language badges */}
-                      <div className="flex flex-wrap gap-1.5">
+                      {/* Time */}
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Clock className="size-3" />
+                        {timeAgo(event.created_at)}
+                      </div>
+
+                      {/* Language flow */}
+                      <div className="mt-4 flex flex-wrap items-center gap-1.5">
                         <Badge variant="secondary" className="gap-1 text-xs">
                           <Globe className="size-3" />
                           {LANGUAGES[sourceLang]?.flag}{" "}
                           {LANGUAGES[sourceLang]?.label}
                         </Badge>
-                        <span className="flex items-center text-muted-foreground">→</span>
+                        <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
                         {targetLangs.map((lang) => (
-                          <Badge key={lang} variant="outline" className="text-xs">
+                          <Badge
+                            key={lang}
+                            variant="outline"
+                            className="text-xs"
+                          >
                             {LANGUAGES[lang]?.flag} {LANGUAGES[lang]?.label}
                           </Badge>
                         ))}
                       </div>
 
                       {event.speaker_name && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Users className="size-3" />
                           {event.speaker_name}
                         </div>
                       )}
 
                       {/* Actions */}
-                      <div className="mt-auto flex gap-2 pt-2">
+                      <div className="mt-auto flex gap-2 pt-4">
                         <Button
                           size="sm"
                           className="flex-1 gap-1.5"
@@ -349,7 +366,7 @@ export function Dashboard() {
                           title="Zuhörer-Link kopieren"
                         >
                           {copiedId === event.id ? (
-                            <span className="text-xs text-primary">Kopiert!</span>
+                            <Check className="size-3.5 text-primary" />
                           ) : (
                             <Share2 className="size-3.5" />
                           )}
@@ -363,8 +380,8 @@ export function Dashboard() {
                           <ExternalLink className="size-3.5" />
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -372,7 +389,7 @@ export function Dashboard() {
         )}
       </main>
 
-      {/* ── Footer ──────────────────────────────────────────────────── */}
+      {/* ── Footer ── */}
       <footer className="border-t bg-muted/20">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">

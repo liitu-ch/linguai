@@ -1,58 +1,108 @@
 import { MicOff, Loader2 } from "lucide-react";
 import { Button } from "~/components/ui/button.tsx";
-import { Badge } from "~/components/ui/badge.tsx";
+import { cn } from "~/lib/utils.ts";
 
 interface RecordingControlsProps {
   status: "idle" | "connecting" | "active" | "error";
   onStart: () => void;
   onStop: () => void;
+  /** Full-width variant for mobile bottom bar */
+  fullWidth?: boolean;
 }
-
-const STATUS_CONFIG: Record<
-  string,
-  { variant: "secondary" | "outline" | "default" | "destructive"; label: string; dot: string }
-> = {
-  idle: { variant: "secondary", label: "Bereit", dot: "bg-muted-foreground" },
-  connecting: { variant: "outline", label: "Verbinde...", dot: "bg-yellow-500 animate-pulse" },
-  active: { variant: "default", label: "Live", dot: "bg-green-500" },
-  error: { variant: "destructive", label: "Fehler", dot: "bg-destructive" },
-};
 
 export function RecordingControls({
   status,
   onStart,
   onStop,
+  fullWidth = false,
 }: RecordingControlsProps) {
-  const { variant, label, dot } = STATUS_CONFIG[status] ?? STATUS_CONFIG.idle;
+  if (fullWidth) {
+    return (
+      <div className="flex items-center gap-3">
+        {status === "idle" || status === "error" ? (
+          <Button
+            onClick={onStart}
+            variant="destructive"
+            size="lg"
+            className="flex-1 gap-2 text-base font-semibold"
+          >
+            <span className="relative flex size-3">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-white/60" />
+              <span className="relative inline-flex size-full rounded-full bg-white" />
+            </span>
+            Aufnahme starten
+          </Button>
+        ) : status === "connecting" ? (
+          <Button
+            disabled
+            size="lg"
+            variant="outline"
+            className="flex-1 gap-2 text-base"
+          >
+            <Loader2 className="size-4 animate-spin" />
+            Verbinde…
+          </Button>
+        ) : (
+          <>
+            <Button
+              onClick={onStop}
+              size="lg"
+              variant="secondary"
+              className="flex-1 gap-2 text-base"
+            >
+              <MicOff className="size-4" />
+              Aufnahme stoppen
+            </Button>
+            <div className="flex shrink-0 items-center gap-1.5 rounded-xl bg-red-500/20 px-3.5 py-2.5">
+              <span className="size-2 rounded-full bg-red-400 animate-pulse" />
+              <span className="text-sm font-bold text-red-400">LIVE</span>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
+  // Compact inline variant (header)
   return (
-    <div className="flex items-center gap-2 sm:gap-3">
+    <div className="flex items-center gap-2">
       {status === "idle" || status === "error" ? (
-        <Button onClick={onStart} variant="destructive" size="sm" className="sm:h-10 sm:px-6 sm:text-sm">
-          <span className="relative flex size-2.5 sm:size-3">
+        <Button
+          onClick={onStart}
+          variant="destructive"
+          size="sm"
+          className="gap-1.5 sm:h-9 sm:px-4"
+        >
+          <span className="relative flex size-2">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-white/60" />
             <span className="relative inline-flex size-full rounded-full bg-white" />
           </span>
-          <span className="hidden sm:inline">Aufnahme starten</span>
-          <span className="sm:hidden">Start</span>
+          <span className="hidden sm:inline">Starten</span>
         </Button>
       ) : status === "connecting" ? (
-        <Button disabled size="sm" variant="outline" className="sm:h-10 sm:px-6 sm:text-sm">
-          <Loader2 className="size-4 animate-spin" />
-          <span className="hidden sm:inline">Verbinde...</span>
+        <Button
+          disabled
+          size="sm"
+          variant="outline"
+          className="gap-1.5 sm:h-9 sm:px-4"
+        >
+          <Loader2 className="size-3.5 animate-spin" />
+          <span className="hidden sm:inline">Verbinde…</span>
         </Button>
       ) : (
-        <Button onClick={onStop} size="sm" variant="secondary" className="sm:h-10 sm:px-6 sm:text-sm">
-          <MicOff className="size-4" />
-          <span className="hidden sm:inline">Aufnahme stoppen</span>
-          <span className="sm:hidden">Stop</span>
+        <Button
+          onClick={onStop}
+          size="sm"
+          variant="secondary"
+          className={cn(
+            "gap-1.5 sm:h-9 sm:px-4",
+            "border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+          )}
+        >
+          <MicOff className="size-3.5" />
+          <span className="hidden sm:inline">Stoppen</span>
         </Button>
       )}
-
-      <Badge variant={variant} className="gap-1.5">
-        <span className={`size-2 rounded-full ${dot}`} />
-        {label}
-      </Badge>
     </div>
   );
 }

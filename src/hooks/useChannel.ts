@@ -7,6 +7,8 @@ interface UseChannelOptions {
   sessionId: string;
   onSegment: (segment: TranslationSegment) => void;
   enabled?: boolean;
+  /** Track this client's presence so the speaker can see listener count */
+  trackPresence?: boolean;
 }
 
 type ConnectionState = "connecting" | "open" | "closed" | "error";
@@ -15,6 +17,7 @@ export function useChannel({
   sessionId,
   onSegment,
   enabled = true,
+  trackPresence = false,
 }: UseChannelOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const onSegmentRef = useRef(onSegment);
@@ -37,6 +40,10 @@ export function useChannel({
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           setConnectionState("open");
+          if (trackPresence) {
+            // Register this listener in the presence state
+            channel.track({ role: "listener", ts: Date.now() });
+          }
         } else if (status === "CHANNEL_ERROR") {
           setConnectionState("error");
         } else if (status === "CLOSED") {
@@ -49,7 +56,7 @@ export function useChannel({
       channelRef.current = null;
       setConnectionState("closed");
     };
-  }, [sessionId, enabled]);
+  }, [sessionId, enabled, trackPresence]);
 
   return { connectionState };
 }
