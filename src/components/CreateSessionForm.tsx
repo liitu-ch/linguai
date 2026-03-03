@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mic, Check, Loader2 } from "lucide-react";
+import { Mic, Check, Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import type { SupportedLanguage } from "~/types/session.ts";
 import { LANGUAGE_LIST } from "~/lib/languages.ts";
 import { Button } from "~/components/ui/button.tsx";
@@ -13,6 +13,7 @@ interface CreateSessionFormProps {
     sourceLang: SupportedLanguage;
     targetLanguages: SupportedLanguage[];
     speakerName: string;
+    password: string;
   }) => void;
   loading?: boolean;
 }
@@ -25,6 +26,9 @@ export function CreateSessionForm({
   const [speakerName, setSpeakerName] = useState("");
   const [sourceLang, setSourceLang] = useState<SupportedLanguage>("en");
   const [targetLanguages, setTargetLanguages] = useState<SupportedLanguage[]>([]);
+  const [isProtected, setIsProtected] = useState(false);
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const toggleTarget = (lang: SupportedLanguage) => {
     setTargetLanguages((prev) =>
@@ -35,7 +39,8 @@ export function CreateSessionForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (targetLanguages.length === 0) return;
-    onSubmit({ title, sourceLang, targetLanguages, speakerName });
+    if (isProtected && !password.trim()) return;
+    onSubmit({ title, sourceLang, targetLanguages, speakerName, password: isProtected ? password : "" });
   };
 
   const availableTargets = LANGUAGE_LIST.filter((l) => l.code !== sourceLang);
@@ -74,6 +79,86 @@ export function CreateSessionForm({
               placeholder="z.B. Dr. Maria Müller"
             />
           </div>
+        </div>
+
+        {/* ── Password protection toggle ── */}
+        <div className="pl-9">
+          <button
+            type="button"
+            onClick={() => {
+              setIsProtected((v) => !v);
+              if (isProtected) setPassword("");
+            }}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all",
+              isProtected
+                ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                : "border-border bg-background hover:border-primary/30 hover:bg-primary/[0.02]"
+            )}
+          >
+            <div
+              className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                isProtected ? "bg-primary/15 text-primary" : "bg-muted/60 text-muted-foreground"
+              )}
+            >
+              <Lock className="size-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                Passwortschutz
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Zuhörer müssen ein Passwort eingeben, um beizutreten
+              </p>
+            </div>
+            {/* Toggle pill */}
+            <div
+              className={cn(
+                "relative flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+                isProtected ? "bg-primary" : "bg-muted"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute size-3.5 rounded-full bg-white shadow-sm transition-transform",
+                  isProtected ? "translate-x-[18px]" : "translate-x-[3px]"
+                )}
+              />
+            </div>
+          </button>
+
+          {isProtected && (
+            <div className="mt-3 space-y-1.5">
+              <Label htmlFor="password" className="text-xs text-muted-foreground">
+                Passwort
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Passwort für Zuhörer"
+                  className="pr-10"
+                  required={isProtected}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -170,7 +255,11 @@ export function CreateSessionForm({
       <Button
         type="submit"
         size="lg"
-        disabled={loading || targetLanguages.length === 0}
+        disabled={
+          loading ||
+          targetLanguages.length === 0 ||
+          (isProtected && !password.trim())
+        }
         className="w-full gap-2"
       >
         {loading ? (
@@ -180,7 +269,11 @@ export function CreateSessionForm({
           </>
         ) : (
           <>
-            <Mic className="size-4" />
+            {isProtected ? (
+              <Lock className="size-4" />
+            ) : (
+              <Mic className="size-4" />
+            )}
             Session starten
           </>
         )}

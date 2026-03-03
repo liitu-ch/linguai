@@ -18,6 +18,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          password_hash: string | null
           source_lang: string
           speaker_name: string | null
           status: string
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id: string
+          password_hash?: string | null
           source_lang: string
           speaker_name?: string | null
           status?: string
@@ -42,6 +44,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          password_hash?: string | null
           source_lang?: string
           speaker_name?: string | null
           status?: string
@@ -92,6 +95,14 @@ export type Database = {
       delete_user: {
         Args: Record<never, never>
         Returns: undefined
+      }
+      get_event_protection: {
+        Args: { p_event_id: string }
+        Returns: boolean
+      }
+      verify_event_password: {
+        Args: { p_event_id: string; p_password_hash: string }
+        Returns: boolean
       }
     }
     Enums: {

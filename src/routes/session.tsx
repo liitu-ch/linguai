@@ -1,9 +1,13 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router";
 import {
   ArrowRight,
   Check,
+  Eye,
+  EyeOff,
   Languages,
+  Loader2,
+  Lock,
   Settings,
   Volume2,
   VolumeOff,
@@ -18,7 +22,10 @@ import { TranscriptView } from "~/components/TranscriptView.tsx";
 import { ThemeToggle } from "~/components/ThemeToggle.tsx";
 import { LANGUAGES } from "~/lib/languages.ts";
 import { Button } from "~/components/ui/button.tsx";
+import { Input } from "~/components/ui/input.tsx";
 import { cn } from "~/lib/utils.ts";
+import { supabase } from "~/lib/supabase.ts";
+import { sha256 } from "~/lib/crypto.ts";
 import type { SupportedLanguage, TranslationSegment } from "~/types/session.ts";
 
 interface DisplaySegment {
@@ -66,6 +73,40 @@ export function Session() {
   const [showSettings, setShowSettings] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const showSettingsRef = useRef(false);
+
+  // ── Password gate state ───────────────────────────────────────────────────
+  const [isProtected, setIsProtected] = useState<boolean | null>(null); // null = loading
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [passwordError, setPasswordError] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [passwordVerified, setPasswordVerified] = useState(false);
+
+  // ── Check if session is password protected ───────────────────────────────
+  useEffect(() => {
+    if (!sessionId) return;
+    supabase.rpc("get_event_protection", { p_event_id: sessionId }).then(({ data }) => {
+      setIsProtected(data === true);
+    });
+  }, [sessionId]);
+
+  const handleVerifyPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sessionId || !passwordInput.trim()) return;
+    setVerifying(true);
+    setPasswordError(false);
+    const hash = await sha256(passwordInput.trim());
+    const { data } = await supabase.rpc("verify_event_password", {
+      p_event_id: sessionId,
+      p_password_hash: hash,
+    });
+    setVerifying(false);
+    if (data === true) {
+      setPasswordVerified(true);
+    } else {
+      setPasswordError(true);
+    }
+  };
 
   const targetLangs = (searchParams.get("targets") || "es,pt,ms").split(
     ","
@@ -129,6 +170,94 @@ export function Session() {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background p-4">
         <p className="text-destructive text-center">Keine Session-ID</p>
+      </div>
+    );
+  }
+
+  // ── Password gate screen ───────────────────────────────────────────────────
+  if (isProtected === null) {
+    return (
+      <div className="flex min-h-svh items-center justify-center bg-background">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isProtected && !passwordVerified) {
+    return (
+      <div className="flex min-h-svh flex-col bg-background">
+        <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
+          <div className="w-full max-w-xs space-y-8">
+            {/* Logo + title */}
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-indigo-500">
+                <Languages className="size-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Diese Session ist passwortgeschützt
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyPassword} className="space-y-4">
+              <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3">
+                <Lock className="size-4 shrink-0 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Bitte gib das Passwort ein, um beizutreten.
+                </span>
+              </div>
+
+              <div className="relative">
+                <Input
+                  type={showPasswordInput ? "text" : "password"}
+                  value={passwordInput}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value);
+                    setPasswordError(false);
+                  }}
+                  placeholder="Passwort"
+                  autoFocus
+                  className={cn(
+                    "pr-10",
+                    passwordError && "border-destructive focus-visible:ring-destructive/30"
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordInput((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPasswordInput ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </button>
+              </div>
+
+              {passwordError && (
+                <p className="text-center text-sm text-destructive">
+                  Falsches Passwort. Bitte erneut versuchen.
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                size="lg"
+                disabled={verifying || !passwordInput.trim()}
+                className="w-full gap-2 bg-indigo-500 text-white hover:bg-indigo-400"
+              >
+                {verifying ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="size-4" />
+                )}
+                Beitreten
+              </Button>
+            </form>
+          </div>
+        </div>
       </div>
     );
   }

@@ -18,14 +18,15 @@ import {
   Settings2,
   Radio,
   UserCircle,
+  Lock,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { CreateSessionForm } from "~/components/CreateSessionForm.tsx";
 import { ThemeToggle } from "~/components/ThemeToggle.tsx";
 import { Button } from "~/components/ui/button.tsx";
-import { Badge } from "~/components/ui/badge.tsx";
 import { useAuth } from "~/hooks/useAuth.ts";
 import { supabase } from "~/lib/supabase.ts";
+import { sha256 } from "~/lib/crypto.ts";
 import { LANGUAGES } from "~/lib/languages.ts";
 import type { SupportedLanguage } from "~/types/session.ts";
 import type { EventRow } from "~/types/database.ts";
@@ -86,10 +87,12 @@ export function Dashboard() {
     sourceLang: SupportedLanguage;
     targetLanguages: SupportedLanguage[];
     speakerName: string;
+    password: string;
   }) => {
     if (!user) return;
     const id = nanoid(8);
     const title = data.title.trim() || "Neue Session";
+    const passwordHash = data.password ? await sha256(data.password) : null;
 
     const { error } = await supabase.from("events").insert({
       id,
@@ -98,6 +101,7 @@ export function Dashboard() {
       source_lang: data.sourceLang,
       target_languages: data.targetLanguages,
       speaker_name: data.speakerName.trim() || null,
+      password_hash: passwordHash,
       status: "active",
     });
 
@@ -311,9 +315,16 @@ export function Dashboard() {
                     <div className="flex flex-1 flex-col p-5 pt-6">
                       {/* Title + delete */}
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold leading-tight text-foreground">
-                          {event.title}
-                        </h3>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <h3 className="font-semibold leading-tight text-foreground truncate">
+                            {event.title}
+                          </h3>
+                          {event.password_hash && (
+                            <span title="Passwortgeschützt">
+                              <Lock className="size-3 shrink-0 text-muted-foreground/60" />
+                            </span>
+                          )}
+                        </div>
                         <button
                           onClick={() => handleDelete(event.id)}
                           disabled={deletingId === event.id}
