@@ -6,6 +6,8 @@ import type { TranslationSegment } from "~/types/session.ts";
 interface UseChannelOptions {
   sessionId: string;
   onSegment: (segment: TranslationSegment) => void;
+  onInterim?: (text: string) => void;
+  onSpeechState?: (speaking: boolean) => void;
   enabled?: boolean;
   /** Track this client's presence so the speaker can see listener count */
   trackPresence?: boolean;
@@ -16,12 +18,18 @@ type ConnectionState = "connecting" | "open" | "closed" | "error";
 export function useChannel({
   sessionId,
   onSegment,
+  onInterim,
+  onSpeechState,
   enabled = true,
   trackPresence = false,
 }: UseChannelOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const onSegmentRef = useRef(onSegment);
   onSegmentRef.current = onSegment;
+  const onInterimRef = useRef(onInterim);
+  onInterimRef.current = onInterim;
+  const onSpeechStateRef = useRef(onSpeechState);
+  onSpeechStateRef.current = onSpeechState;
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("closed");
 
@@ -36,6 +44,14 @@ export function useChannel({
     channel
       .on("broadcast", { event: "segment" }, ({ payload }) => {
         onSegmentRef.current(payload as TranslationSegment);
+      })
+      .on("broadcast", { event: "interim" }, ({ payload }) => {
+        const { text } = payload as { text: string };
+        onInterimRef.current?.(text);
+      })
+      .on("broadcast", { event: "speech_state" }, ({ payload }) => {
+        const { speaking } = payload as { speaking: boolean };
+        onSpeechStateRef.current?.(speaking);
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {

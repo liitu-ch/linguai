@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const response = await fetch(
-      "https://api.openai.com/v1/realtime/sessions",
+      "https://api.openai.com/v1/realtime/transcription_sessions",
       {
         method: "POST",
         headers: {
@@ -20,9 +20,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-realtime-preview",
-          modalities: ["audio", "text"],
-          input_audio_transcription: { model: "whisper-1" },
+          input_audio_format: "pcm16",
+          input_audio_transcription: {
+            model: "gpt-4o-transcribe",
+          },
         }),
       }
     );

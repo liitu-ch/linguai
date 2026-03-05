@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useRealtimeTranscription } from "~/hooks/useRealtimeTranscription.ts";
+import { useChunkedTranscription } from "~/hooks/useChunkedTranscription.ts";
 import { QRCodeDisplay } from "~/components/QRCodeDisplay.tsx";
 import { RecordingControls } from "~/components/RecordingControls.tsx";
 import { TranscriptView } from "~/components/TranscriptView.tsx";
@@ -27,7 +28,7 @@ import { ThemeToggle } from "~/components/ThemeToggle.tsx";
 import { Button } from "~/components/ui/button.tsx";
 import { LANGUAGES } from "~/lib/languages.ts";
 import { supabase } from "~/lib/supabase.ts";
-import type { SupportedLanguage } from "~/types/session.ts";
+import type { SupportedLanguage, TranscriptionMode } from "~/types/session.ts";
 import type { GlossaryEntry } from "~/types/api.ts";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { cn } from "~/lib/utils.ts";
@@ -58,6 +59,8 @@ export function Speaker() {
   // Session prep state
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [presentationContext, setPresentationContext] = useState("");
+  const [transcriptionMode, setTranscriptionMode] = useState<TranscriptionMode>("realtime");
+  const [chunkIntervalMs, setChunkIntervalMs] = useState(5000);
   const [silenceDurationMs, setSilenceDurationMs] = useState(300);
   const [vadThreshold, setVadThreshold] = useState(0.5);
 
@@ -106,14 +109,34 @@ export function Speaker() {
   }, []);
 
   const handleFinal = useCallback((text: string, seq: number) => {
-    setSegments((prev) => [
-      ...prev,
-      { id: `final-${seq}`, text, isFinal: true, timestampMs: Date.now() },
-    ]);
+    const id = `final-${transcriptionMode}-${seq}`;
+    setSegments((prev) => {
+      if (prev.some((s) => s.id === id)) return prev;
+      return [
+        ...prev,
+        { id, text, isFinal: true, timestampMs: Date.now() },
+      ];
+    });
     setInterimText("");
-  }, []);
+  }, [transcriptionMode]);
 
-  const { start, stop, status } = useRealtimeTranscription({
+  const handleSpeechStart = useCallback(() => {
+    channel?.send({
+      type: "broadcast",
+      event: "speech_state",
+      payload: { speaking: true },
+    });
+  }, [channel]);
+
+  const handleSpeechStop = useCallback(() => {
+    channel?.send({
+      type: "broadcast",
+      event: "speech_state",
+      payload: { speaking: false },
+    });
+  }, [channel]);
+
+  const realtime = useRealtimeTranscription({
     sourceLang,
     targetLangs: targetLanguages,
     channel,
@@ -123,7 +146,25 @@ export function Speaker() {
     vadThreshold,
     onInterimTranscript: handleInterim,
     onFinalTranscript: handleFinal,
+    onSpeechStart: handleSpeechStart,
+    onSpeechStop: handleSpeechStop,
   });
+
+  const chunked = useChunkedTranscription({
+    mode: transcriptionMode === "diarize" ? "diarize" : "chunked",
+    sourceLang,
+    targetLangs: targetLanguages,
+    channel,
+    glossary,
+    context: presentationContext,
+    chunkIntervalMs,
+    onInterimTranscript: handleInterim,
+    onFinalTranscript: handleFinal,
+    onSpeechStart: handleSpeechStart,
+    onSpeechStop: handleSpeechStop,
+  });
+
+  const { start, stop, status } = transcriptionMode === "realtime" ? realtime : chunked;
 
   // Timer
   useEffect(() => {
@@ -166,7 +207,7 @@ export function Speaker() {
   // Badge counts for settings icon indicator
   const hasGlossary = glossary.length > 0;
   const hasContext = presentationContext.length > 0;
-  const hasCustomVad = silenceDurationMs !== 300 || vadThreshold !== 0.5;
+  const hasCustomVad = silenceDurationMs !== 300 || vadThreshold !== 0.5 || transcriptionMode !== "realtime";
   const settingsBadgeCount =
     (hasGlossary ? 1 : 0) + (hasContext ? 1 : 0) + (hasCustomVad ? 1 : 0);
 
@@ -393,7 +434,7 @@ export function Speaker() {
           </div>
 
           {/* Mobile content */}
-          <div className="pb-[5.5rem]">
+          <div>
             {mobileTab === "qr" ? (
               <div className="space-y-3 p-4">
                 <QRCodeDisplay url={sessionUrl} sessionId={sessionId} />
@@ -405,9 +446,9 @@ export function Speaker() {
                 </div>
               </div>
             ) : (
-              <div className="p-4">
+              <div className="px-3">
                 {!isRecording && segments.length === 0 ? (
-                  <div className="flex h-[50svh] flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-muted/20">
+                  <div className="flex h-[calc(100svh-12.5rem)] flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-muted/20">
                     <Mic className="size-8 text-indigo-400 opacity-70" />
                     <p className="text-sm text-muted-foreground">
                       Starte die Aufnahme unten
@@ -417,7 +458,7 @@ export function Speaker() {
                   <TranscriptView
                     segments={segments}
                     interimText={interimText}
-                    className="h-[50svh]"
+                    className="h-[calc(100svh-12.5rem)]"
                   />
                 )}
               </div>
@@ -503,6 +544,10 @@ export function Speaker() {
                 onGlossaryChange={setGlossary}
                 context={presentationContext}
                 onContextChange={setPresentationContext}
+                transcriptionMode={transcriptionMode}
+                onTranscriptionModeChange={setTranscriptionMode}
+                chunkIntervalMs={chunkIntervalMs}
+                onChunkIntervalChange={setChunkIntervalMs}
                 silenceDurationMs={silenceDurationMs}
                 onSilenceDurationChange={setSilenceDurationMs}
                 vadThreshold={vadThreshold}

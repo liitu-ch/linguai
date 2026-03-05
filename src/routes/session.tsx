@@ -15,6 +15,9 @@ import {
   WifiOff,
   Sparkles,
   LogOut,
+  Mic,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useChannel } from "~/hooks/useChannel.ts";
 import { useTTS, type TTSMode } from "~/hooks/useTTS.ts";
@@ -26,7 +29,13 @@ import { Input } from "~/components/ui/input.tsx";
 import { cn } from "~/lib/utils.ts";
 import { supabase } from "~/lib/supabase.ts";
 import { sha256 } from "~/lib/crypto.ts";
-import type { SupportedLanguage, TranslationSegment } from "~/types/session.ts";
+import type {
+  SupportedLanguage,
+  TranslationSegment,
+  TTSVoiceSettings,
+  TTSVoice,
+} from "~/types/session.ts";
+import { DEFAULT_TTS_VOICE_SETTINGS } from "~/types/session.ts";
 
 interface DisplaySegment {
   id: string;
@@ -69,7 +78,13 @@ export function Session() {
   const [selectedLang, setSelectedLang] = useState<SupportedLanguage | null>(null);
   const [confirmedLang, setConfirmedLang] = useState(false);
   const [segments, setSegments] = useState<DisplaySegment[]>([]);
+  const [interimText, setInterimText] = useState("");
   const [ttsMode, setTtsMode] = useState<TTSMode>("browser");
+  const [voiceSettings, setVoiceSettings] = useState<TTSVoiceSettings>(
+    () => ({ ...DEFAULT_TTS_VOICE_SETTINGS })
+  );
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showVoiceDetails, setShowVoiceDetails] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const showSettingsRef = useRef(false);
@@ -116,12 +131,22 @@ export function Session() {
   const { enqueue } = useTTS({
     mode: ttsMode,
     lang: selectedLang ?? "en",
+    voiceSettings: ttsMode === "openai" ? voiceSettings : undefined,
   });
+
+  const handleInterim = useCallback((text: string) => {
+    setInterimText(text);
+  }, []);
+
+  const handleSpeechState = useCallback((speaking: boolean) => {
+    setIsSpeaking(speaking);
+  }, []);
 
   const handleSegment = useCallback(
     (segment: TranslationSegment) => {
       if (!selectedLang) return;
       const text = segment.translations[selectedLang] ?? segment.originalText;
+      setInterimText("");
       setSegments((prev) => {
         if (prev.some((s) => s.id === segment.id)) return prev;
         return [
@@ -143,6 +168,8 @@ export function Session() {
   const { connectionState } = useChannel({
     sessionId: sessionId ?? "",
     onSegment: handleSegment,
+    onInterim: handleInterim,
+    onSpeechState: handleSpeechState,
     enabled: !!selectedLang && !!sessionId && confirmedLang,
     trackPresence: true,
   });
@@ -459,6 +486,123 @@ export function Session() {
               </div>
             </div>
 
+            {/* Voice settings (only when OpenAI TTS selected) */}
+            {ttsMode === "openai" && (
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowVoiceDetails((v) => !v)}
+                  className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-widest text-muted-foreground/70"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Mic className="size-3" />
+                    Stimm-Einstellungen
+                  </div>
+                  {showVoiceDetails ? (
+                    <ChevronUp className="size-3.5" />
+                  ) : (
+                    <ChevronDown className="size-3.5" />
+                  )}
+                </button>
+
+                {showVoiceDetails && (
+                  <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+                    {/* Voice selector */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-muted-foreground">
+                        Stimme
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(
+                          ["marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"] as TTSVoice[]
+                        ).map((v) => (
+                          <button
+                            key={v}
+                            onClick={() =>
+                              setVoiceSettings((s) => ({ ...s, voice: v }))
+                            }
+                            className={cn(
+                              "rounded-lg px-2.5 py-1 text-xs font-medium transition-all capitalize",
+                              voiceSettings.voice === v
+                                ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/40"
+                                : "bg-muted/40 text-muted-foreground border border-transparent hover:text-foreground"
+                            )}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Text fields for voice instructions */}
+                    {([
+                      { key: "accent" as const, label: "Akzent", placeholder: "z.B. British English, leichter französischer Akzent" },
+                      { key: "tone" as const, label: "Ton", placeholder: "z.B. warm und freundlich, professionell" },
+                      { key: "emotionalRange" as const, label: "Emotionaler Bereich", placeholder: "z.B. ruhig und gelassen, enthusiastisch" },
+                      { key: "speed" as const, label: "Sprechgeschwindigkeit", placeholder: "z.B. langsam und deutlich, schnell" },
+                      { key: "intonation" as const, label: "Intonation", placeholder: "z.B. natürlich, monoton, melodisch" },
+                      { key: "impressions" as const, label: "Eindrücke", placeholder: "z.B. wie ein Nachrichtensprecher" },
+                    ] as const).map(({ key, label, placeholder }) => (
+                      <div key={key} className="space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">
+                          {label}
+                        </label>
+                        <input
+                          type="text"
+                          value={voiceSettings[key]}
+                          onChange={(e) =>
+                            setVoiceSettings((s) => ({
+                              ...s,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          placeholder={placeholder}
+                          className="h-8 w-full rounded-lg border border-border bg-muted/40 px-2.5 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        />
+                      </div>
+                    ))}
+
+                    {/* Whisper toggle */}
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-medium text-muted-foreground">
+                        Flüstern
+                      </label>
+                      <button
+                        onClick={() =>
+                          setVoiceSettings((s) => ({
+                            ...s,
+                            whispering: !s.whispering,
+                          }))
+                        }
+                        className={cn(
+                          "relative h-5 w-9 rounded-full transition-colors",
+                          voiceSettings.whispering
+                            ? "bg-indigo-500"
+                            : "bg-muted-foreground/30"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "absolute top-0.5 left-0.5 size-4 rounded-full bg-white transition-transform",
+                            voiceSettings.whispering && "translate-x-4"
+                          )}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Reset button */}
+                    <button
+                      onClick={() =>
+                        setVoiceSettings({ ...DEFAULT_TTS_VOICE_SETTINGS })
+                      }
+                      className="w-full rounded-lg border border-border bg-muted/20 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Zurücksetzen
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Connection status */}
             <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
               {connectionState === "open" ? (
@@ -520,12 +664,12 @@ export function Session() {
           </div>
         ) : (
           /* Live transcript */
-          <div className="p-3 sm:p-4">
-            <TranscriptView
-              segments={segments}
-              className="h-[calc(100svh-5.5rem)]"
-            />
-          </div>
+          <TranscriptView
+            segments={segments}
+            interimText={interimText}
+            isSpeaking={isSpeaking}
+            className="h-[calc(100svh-3.5rem)]"
+          />
         )}
       </main>
     </div>

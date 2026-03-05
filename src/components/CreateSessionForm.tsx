@@ -173,7 +173,7 @@ export function CreateSessionForm({
             Sprache des Speakers
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-2 pl-9 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 pl-9 sm:grid-cols-3 lg:grid-cols-4">
           {LANGUAGE_LIST.map((l) => (
             <button
               key={l.code}
@@ -225,7 +225,7 @@ export function CreateSessionForm({
             </span>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2 pl-9 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 pl-9 sm:grid-cols-3 lg:grid-cols-4">
           {availableTargets.map((l) => {
             const isActive = targetLanguages.includes(l.code);
             return (
