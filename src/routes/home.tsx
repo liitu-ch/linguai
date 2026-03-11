@@ -10,11 +10,9 @@ import {
   X,
   Check,
   FileText,
-  Sparkles,
   Building2,
   GraduationCap,
   Users,
-  Heart,
   Mic,
   Subtitles,
   ChevronRight,
@@ -232,28 +230,28 @@ const FEATURES = [
     icon: Globe,
     title: "Live-Übersetzung",
     description:
-      "KI übersetzt in Echtzeit in bis zu 9 Sprachen — Latenz unter 2 Sekunden. Kein Dolmetscher, kein Equipment.",
+      "KI übersetzt in Echtzeit in über 39 Sprachen — Latenz unter 2 Sekunden. Kein Dolmetscher, kein Equipment.",
     accent: "bg-blue-500/10 text-blue-400",
   },
   {
     icon: Subtitles,
-    title: "Live-Captions",
+    title: "Visuelle Transkription",
     description:
-      "Zuhörer sehen die Übersetzung sofort auf ihrem Smartphone — klar, gross, lesbar. Ohne App-Download.",
+      "Wort für Wort erscheint die Übersetzung auf dem Smartphone — visuell hervorgehoben wie bei Spotify Podcasts. Klar, gross, lesbar.",
     accent: "bg-violet-500/10 text-violet-400",
   },
   {
     icon: FileText,
-    title: "Vollständiges Transkript",
+    title: "Session-Planung",
     description:
-      "Jede Session wird automatisch transkribiert und nach dem Event als TXT exportiert.",
+      "Sessions im Voraus erstellen, QR-Codes generieren und als Link oder Bild teilen — alles bereit, bevor der Event beginnt.",
     accent: "bg-emerald-500/10 text-emerald-400",
   },
   {
-    icon: Sparkles,
-    title: "KI-Zusammenfassung",
+    icon: Headphones,
+    title: "Eigenes Smartphone & Kopfhörer",
     description:
-      "Nach der Session erstellt die KI automatisch eine strukturierte Zusammenfassung der wichtigsten Punkte.",
+      "Jeder nutzt sein eigenes Gerät. Keine App, kein Download, keine Empfänger-Hardware — einfach QR-Code scannen.",
     accent: "bg-amber-500/10 text-amber-400",
   },
 ];
@@ -261,27 +259,21 @@ const FEATURES = [
 const USE_CASES = [
   {
     icon: Building2,
-    title: "Konferenzen & Kongresse",
+    title: "Empfang internationaler Mitarbeitender",
     description:
-      "Internationales Publikum folgt dem Vortrag — ohne Übersetzungsequipment oder gebuchte Dolmetscher.",
-  },
-  {
-    icon: Users,
-    title: "Unternehmens-Meetings",
-    description:
-      "Globale Teams sprechen ihre Muttersprache. Alle verstehen alles, in Echtzeit.",
+      "Ein Team aus dem Standort Singapur besucht die Zentrale in Zürich. Beim Town Hall scannen alle den QR-Code, wählen ihre Sprache — und folgen der Begrüssung live auf ihrem Smartphone. Mit den eigenen Kopfhörern, ohne Vorbereitung.",
   },
   {
     icon: GraduationCap,
-    title: "Hochschulen & Bildung",
+    title: "Interne Schulungen & Workshops",
     description:
-      "Gastvorträge und Seminare für internationales Publikum zugänglich machen.",
+      "Eine Compliance-Schulung für 120 Mitarbeitende in 5 Ländern. Statt teure Dolmetscher für jede Sprache: ein QR-Code, und jeder folgt dem Training in seiner Muttersprache. Bequem am eigenen Gerät — keine App-Installation nötig.",
   },
   {
-    icon: Heart,
-    title: "NGOs & Behörden",
+    icon: Users,
+    title: "Konferenzen & Vorträge",
     description:
-      "Inklusive Kommunikation — Sprachbarrieren abbauen, ohne hohe Dolmetscherkosten.",
+      "Ein Keynote-Speaker hält seinen Vortrag auf Deutsch. 200 internationale Gäste scannen den QR-Code auf dem Beamer und folgen live in Englisch, Französisch oder Japanisch. Kein Equipment, keine Kabinen — nur Smartphones und Kopfhörer.",
   },
 ];
 
@@ -292,11 +284,10 @@ const PRICING_PLANS = [
     period: "",
     description: "Ideal zum Ausprobieren",
     features: [
-      "Bis zu 10 Zuhörer",
-      "2 Zielsprachen",
-      "30 Min. pro Session",
+      "Alle 39+ Sprachen",
       "Browser Text-to-Speech",
       "Live-Transkript",
+      "Session-Planung & QR-Codes",
     ],
     cta: "Kostenlos starten",
     ctaVariant: "outline" as const,
@@ -308,13 +299,11 @@ const PRICING_PLANS = [
     period: "/ Stunde",
     description: "Für Konferenzen und Firmen",
     features: [
-      "Bis zu 500 Zuhörer",
-      "Alle 9 Sprachen",
-      "Unbegrenzte Dauer",
+      "Alles aus Starter",
       "Premium KI-Stimmen",
-      "Transkript-Export",
-      "KI-Zusammenfassung",
       "Custom Glossar",
+      "Visuelle Transkription",
+      "Prioritäts-Support",
     ],
     cta: "Jetzt starten",
     ctaVariant: "default" as const,
@@ -326,11 +315,10 @@ const PRICING_PLANS = [
     period: "",
     description: "Für grosse Events & Organisationen",
     features: [
-      "Unbegrenzte Zuhörer",
+      "Alles aus Professional",
       "Dedizierte Infrastruktur",
-      "SLA & 24/7 Support",
+      "SLA & Support",
       "SSO & Compliance",
-      "On-Premise Option",
     ],
     cta: "Kontakt aufnehmen",
     ctaVariant: "outline" as const,
@@ -338,10 +326,6 @@ const PRICING_PLANS = [
   },
 ];
 
-const REFERENCES = [
-  "ETH Zürich", "Swiss Re", "Nestlé", "ABB", "UBS",
-  "Novartis", "Roche", "Universität Bern",
-];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -463,7 +447,7 @@ export function Home() {
           {/* Eyebrow */}
           <div className="mb-6 inline-flex animate-fade-up items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-sm text-indigo-300">
             <Zap className="size-3.5" />
-            KI-Simultandolmetschen · Ab CHF 19/h · Kein Equipment
+            KI-Simultandolmetschen · 39+ Sprachen · Kein Equipment
           </div>
 
           {/* Headline */}
@@ -476,8 +460,8 @@ export function Home() {
 
           {/* Subhead */}
           <p className="animate-fade-up mx-auto mt-6 max-w-xl text-base text-muted-foreground md:text-lg" style={{ animationDelay: "0.2s", opacity: 0 }}>
-            Sprecher reden auf Englisch — 87 Zuhörer folgen auf Spanisch, Portugiesisch oder
-            Malaiisch. In Echtzeit. Ohne Dolmetscher. Ohne Equipment. Einfach der QR-Code.
+            Der Speaker spricht seine Sprache — Zuhörer folgen live in ihrer.
+            39+ Sprachen, Echtzeit. Kein Dolmetscher, kein Equipment. Nur ein QR-Code.
           </p>
 
           {/* CTAs */}
@@ -504,10 +488,10 @@ export function Home() {
           {/* Stats */}
           <div className="animate-fade-up mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground" style={{ animationDelay: "0.4s", opacity: 0 }}>
             {[
-              { value: "9", label: "Sprachen" },
+              { value: "39+", label: "Sprachen" },
               { value: "<2s", label: "Latenz" },
-              { value: "500+", label: "Zuhörer/Session" },
-              { value: "4-in-1", label: "Übersetzung, Captions, Transkript, Summary" },
+              { value: "0 CHF", label: "Hardware-Kosten" },
+              { value: "0", label: "App-Downloads nötig" },
             ].map((stat) => (
               <div key={stat.label} className="flex items-baseline gap-1.5">
                 <span className="text-xl font-bold text-foreground">{stat.value}</span>
@@ -523,39 +507,20 @@ export function Home() {
         </div>
       </section>
 
-      {/* ── Logo Marquee ──────────────────────────────────────────── */}
-      <section className="border-y border-border bg-muted/20 py-8">
-        <p className="mb-6 text-center text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Vertraut von führenden Organisationen
-        </p>
-        <div className="relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-background to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-background to-transparent" />
-          <div className="flex animate-marquee gap-12">
-            {[...REFERENCES, ...REFERENCES].map((ref, i) => (
-              <div key={`${ref}-${i}`} className="flex h-10 shrink-0 items-center px-4">
-                <span className="whitespace-nowrap text-lg font-semibold text-muted-foreground/50 transition-colors hover:text-muted-foreground">
-                  {ref}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       <main className="flex-1">
         {/* ── Features ──────────────────────────────────────────────── */}
         <section id="features" className="border-b py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
             <div className="mb-16 text-center">
-              <Badge variant="secondary" className="mb-4">4 Funktionen · 1 Tool</Badge>
+              <Badge variant="secondary" className="mb-4">Alles in einem Tool</Badge>
               <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
                 Alles was du brauchst — in einer Session
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
                 Traditionelle Simultandolmetscher kosten{" "}
-                <strong>CHF 400–800 pro Stunde</strong>. LinguAI liefert mehr
-                — für einen Bruchteil davon.
+                <strong>CHF 400–800 pro Stunde</strong>. LinguAI macht Sprachbarrieren
+                überflüssig — für einen Bruchteil davon.
               </p>
             </div>
 
@@ -665,19 +630,19 @@ export function Home() {
         <section className="border-b py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
             <div className="mb-16 text-center">
-              <Badge variant="secondary" className="mb-4">Anwendungsfälle</Badge>
+              <Badge variant="secondary" className="mb-4">So wird LinguAI eingesetzt</Badge>
               <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                Für jeden Event die richtige Lösung
+                Echte Szenarien aus dem Arbeitsalltag
               </h2>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {USE_CASES.map((uc) => (
-                <div key={uc.title} className="flex gap-4 rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md">
+                <div key={uc.title} className="flex flex-col gap-4 rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <uc.icon className="size-5" />
                   </div>
                   <div>
-                    <h3 className="mb-1.5 font-semibold">{uc.title}</h3>
+                    <h3 className="mb-2 font-semibold">{uc.title}</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {uc.description}
                     </p>
