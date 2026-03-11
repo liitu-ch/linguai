@@ -10,6 +10,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: "OPENAI_API_KEY not configured" });
   }
 
+  const { language } = req.body ?? {};
+
   try {
     const response = await fetch(
       "https://api.openai.com/v1/realtime/transcription_sessions",
@@ -20,9 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          input_audio_format: "pcm16",
           input_audio_transcription: {
             model: "gpt-4o-transcribe",
+            ...(language ? { language } : {}),
           },
         }),
       }

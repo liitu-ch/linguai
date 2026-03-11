@@ -1,34 +1,48 @@
 import { useState } from "react";
-import { Mic, Check, Loader2, Lock, Eye, EyeOff } from "lucide-react";
+import { Check, Loader2, Lock, Eye, EyeOff, Save, Volume2, VolumeOff, Sparkles, CalendarDays } from "lucide-react";
 import type { SupportedLanguage } from "~/types/session.ts";
+import type { TTSMode } from "~/hooks/useTTS.ts";
 import { LANGUAGE_LIST } from "~/lib/languages.ts";
 import { Button } from "~/components/ui/button.tsx";
 import { Input } from "~/components/ui/input.tsx";
 import { Label } from "~/components/ui/label.tsx";
 import { cn } from "~/lib/utils.ts";
 
+export interface SessionFormData {
+  title: string;
+  sourceLang: SupportedLanguage;
+  targetLanguages: SupportedLanguage[];
+  speakerName: string;
+  password: string;
+  /** true = password was explicitly changed (set or cleared) */
+  passwordChanged: boolean;
+  defaultTtsMode: TTSMode;
+  scheduledAt: string;
+}
+
 interface CreateSessionFormProps {
-  onSubmit: (data: {
-    title: string;
-    sourceLang: SupportedLanguage;
-    targetLanguages: SupportedLanguage[];
-    speakerName: string;
-    password: string;
-  }) => void;
+  onSubmit: (data: SessionFormData) => void;
   loading?: boolean;
+  initialData?: Partial<SessionFormData> & { hasPassword?: boolean };
+  submitLabel?: string;
 }
 
 export function CreateSessionForm({
   onSubmit,
   loading,
+  initialData,
+  submitLabel = "Session speichern",
 }: CreateSessionFormProps) {
-  const [title, setTitle] = useState("");
-  const [speakerName, setSpeakerName] = useState("");
-  const [sourceLang, setSourceLang] = useState<SupportedLanguage>("en");
-  const [targetLanguages, setTargetLanguages] = useState<SupportedLanguage[]>([]);
-  const [isProtected, setIsProtected] = useState(false);
-  const [password, setPassword] = useState("");
+  const [title, setTitle] = useState(initialData?.title ?? "");
+  const [speakerName, setSpeakerName] = useState(initialData?.speakerName ?? "");
+  const [scheduledAt, setScheduledAt] = useState(initialData?.scheduledAt ?? "");
+  const [sourceLang, setSourceLang] = useState<SupportedLanguage>(initialData?.sourceLang ?? "en");
+  const [targetLanguages, setTargetLanguages] = useState<SupportedLanguage[]>(initialData?.targetLanguages ?? []);
+  const [isProtected, setIsProtected] = useState(!!initialData?.password || !!initialData?.hasPassword);
+  const [password, setPassword] = useState(initialData?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [defaultTtsMode, setDefaultTtsMode] = useState<TTSMode>(initialData?.defaultTtsMode ?? "off");
 
   const toggleTarget = (lang: SupportedLanguage) => {
     setTargetLanguages((prev) =>
@@ -39,8 +53,9 @@ export function CreateSessionForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (targetLanguages.length === 0) return;
-    if (isProtected && !password.trim()) return;
-    onSubmit({ title, sourceLang, targetLanguages, speakerName, password: isProtected ? password : "" });
+    // Require password only if protection is on AND (it's new or was changed)
+    if (isProtected && !password.trim() && (!initialData?.hasPassword || passwordChanged)) return;
+    onSubmit({ title, sourceLang, targetLanguages, speakerName, password: isProtected ? password : "", passwordChanged, defaultTtsMode, scheduledAt });
   };
 
   const availableTargets = LANGUAGE_LIST.filter((l) => l.code !== sourceLang);
@@ -79,6 +94,20 @@ export function CreateSessionForm({
               placeholder="z.B. Dr. Maria Müller"
             />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="scheduled-at" className="text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <CalendarDays className="size-3" />
+                Datum der Session
+              </span>
+            </Label>
+            <Input
+              id="scheduled-at"
+              type="date"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* ── Password protection toggle ── */}
@@ -88,6 +117,7 @@ export function CreateSessionForm({
             onClick={() => {
               setIsProtected((v) => !v);
               if (isProtected) setPassword("");
+              setPasswordChanged(true);
             }}
             className={cn(
               "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all",
@@ -138,10 +168,10 @@ export function CreateSessionForm({
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Passwort für Zuhörer"
+                  onChange={(e) => { setPassword(e.target.value); setPasswordChanged(true); }}
+                  placeholder={initialData?.hasPassword && !passwordChanged ? "Passwort beibehalten (leer lassen)" : "Passwort für Zuhörer"}
                   className="pr-10"
-                  required={isProtected}
+                  required={isProtected && (!initialData?.hasPassword || passwordChanged)}
                   autoFocus
                 />
                 <button
@@ -251,6 +281,56 @@ export function CreateSessionForm({
         </div>
       </div>
 
+      {/* ── Step 4: Default TTS ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+              "bg-primary text-primary-foreground"
+            )}
+          >
+            4
+          </div>
+          <h3 className="font-semibold">Standard-Sprachausgabe</h3>
+          <span className="text-xs text-muted-foreground">
+            Voreinstellung für Zuhörer
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-2 pl-9 sm:grid-cols-3">
+          {([
+            { value: "off" as const, label: "Nur Text", icon: VolumeOff, description: "Keine Sprachausgabe" },
+            { value: "browser" as const, label: "Browser-Stimme", icon: Volume2, description: "Kostenlos, Systemstimme" },
+            { value: "openai" as const, label: "Premium-Stimme", icon: Sparkles, description: "KI-Stimme (OpenAI)" },
+          ]).map((opt) => {
+            const isActive = defaultTtsMode === opt.value;
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setDefaultTtsMode(opt.value)}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm text-left transition-all",
+                  isActive
+                    ? "border-primary bg-primary/5 text-primary ring-1 ring-primary/20"
+                    : "border-border bg-background hover:border-primary/30 hover:bg-primary/[0.02]"
+                )}
+              >
+                <Icon className={cn("size-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                <div className="min-w-0">
+                  <span className="font-medium truncate">{opt.label}</span>
+                  <p className="text-xs text-muted-foreground">{opt.description}</p>
+                </div>
+                {isActive && (
+                  <Check className="ml-auto size-3.5 shrink-0 text-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── Submit ── */}
       <Button
         type="submit"
@@ -258,23 +338,19 @@ export function CreateSessionForm({
         disabled={
           loading ||
           targetLanguages.length === 0 ||
-          (isProtected && !password.trim())
+          (isProtected && !password.trim() && (!initialData?.hasPassword || passwordChanged))
         }
         className="w-full gap-2"
       >
         {loading ? (
           <>
             <Loader2 className="size-4 animate-spin" />
-            Erstelle Session…
+            Speichere…
           </>
         ) : (
           <>
-            {isProtected ? (
-              <Lock className="size-4" />
-            ) : (
-              <Mic className="size-4" />
-            )}
-            Session starten
+            <Save className="size-4" />
+            {submitLabel}
           </>
         )}
       </Button>

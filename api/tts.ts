@@ -49,34 +49,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { text, lang, voice, instructions } = req.body;
+  const { text, lang } = req.body;
   if (!text || !lang) {
     return res.status(400).json({ error: "text and lang are required" });
   }
 
-  const selectedVoice = voice || VOICE_MAP[lang] || "marin";
+  const voice = VOICE_MAP[lang] || "marin";
 
   try {
-    const params: Record<string, unknown> = {
+    const response = await openai.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: selectedVoice,
+      voice: voice as "alloy",
       input: text,
+      instructions: "Speak naturally and clearly.",
       response_format: "mp3",
-    };
-
-    if (instructions) {
-      params.instructions = instructions;
-    }
-
-    const response = await openai.audio.speech.create(params as Parameters<typeof openai.audio.speech.create>[0]);
+    });
 
     const buffer = Buffer.from(await response.arrayBuffer());
 
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "no-store");
     res.send(buffer);
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("[tts] Error:", err);
+    if (err instanceof OpenAI.APIError) {
+      const message =
+        err.status === 429
+          ? "OpenAI quota exceeded – check your billing"
+          : err.message || "TTS generation failed";
+      return res.status(err.status ?? 500).json({ error: message });
+    }
     return res.status(500).json({ error: "TTS generation failed" });
   }
 }

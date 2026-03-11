@@ -16,9 +16,11 @@ export type Database = {
       events: {
         Row: {
           created_at: string
+          default_tts_mode: string | null
           expires_at: string
           id: string
           password_hash: string | null
+          scheduled_at: string | null
           source_lang: string
           speaker_name: string | null
           status: string
@@ -29,9 +31,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_tts_mode?: string | null
           expires_at?: string
           id: string
           password_hash?: string | null
+          scheduled_at?: string | null
           source_lang: string
           speaker_name?: string | null
           status?: string
@@ -42,9 +46,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_tts_mode?: string | null
           expires_at?: string
           id?: string
           password_hash?: string | null
+          scheduled_at?: string | null
           source_lang?: string
           speaker_name?: string | null
           status?: string

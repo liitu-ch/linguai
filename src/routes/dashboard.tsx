@@ -9,7 +9,6 @@ import {
   Share2,
   Trash2,
   Globe,
-  Users,
   Loader2,
   AlertCircle,
   X,
@@ -21,10 +20,18 @@ import {
   Lock,
 } from "lucide-react";
 import { nanoid } from "nanoid";
-import { CreateSessionForm } from "~/components/CreateSessionForm.tsx";
+import { CreateSessionForm, type SessionFormData } from "~/components/CreateSessionForm.tsx";
 import { ThemeToggle } from "~/components/ThemeToggle.tsx";
 import { Button } from "~/components/ui/button.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog.tsx";
 import { useAuth } from "~/hooks/useAuth.ts";
+import type { TTSMode } from "~/hooks/useTTS.ts";
 import { supabase } from "~/lib/supabase.ts";
 import { sha256 } from "~/lib/crypto.ts";
 import { LANGUAGES } from "~/lib/languages.ts";
@@ -34,15 +41,12 @@ import { cn } from "~/lib/utils.ts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function timeAgo(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const minutes = Math.floor(diff / 60_000);
-  const hours = Math.floor(diff / 3_600_000);
-  const days = Math.floor(diff / 86_400_000);
-  if (days > 0) return `vor ${days} Tag${days > 1 ? "en" : ""}`;
-  if (hours > 0) return `vor ${hours} Std.`;
-  if (minutes > 0) return `vor ${minutes} Min.`;
-  return "gerade eben";
+function formatDate(isoString: string): string {
+  return new Date(isoString).toLocaleDateString("de-CH", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -57,6 +61,8 @@ export function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
 
   // ── Load events ──────────────────────────────────────────────────────────
   const fetchEvents = useCallback(async () => {
@@ -82,13 +88,7 @@ export function Dashboard() {
   }, [fetchEvents]);
 
   // ── Create event ─────────────────────────────────────────────────────────
-  const handleCreateSession = async (data: {
-    title: string;
-    sourceLang: SupportedLanguage;
-    targetLanguages: SupportedLanguage[];
-    speakerName: string;
-    password: string;
-  }) => {
+  const handleCreateSession = async (data: SessionFormData) => {
     if (!user) return;
     const id = nanoid(8);
     const title = data.title.trim() || "Neue Session";
@@ -102,6 +102,8 @@ export function Dashboard() {
       target_languages: data.targetLanguages,
       speaker_name: data.speakerName.trim() || null,
       password_hash: passwordHash,
+      default_tts_mode: data.defaultTtsMode,
+      scheduled_at: data.scheduledAt || null,
       status: "active",
     });
 
@@ -110,16 +112,47 @@ export function Dashboard() {
     }
 
     setShowForm(false);
-    const params = new URLSearchParams({
+    fetchEvents();
+  };
+
+  // ── Update event ────────────────────────────────────────────────────────
+  const handleUpdateSession = async (data: SessionFormData) => {
+    if (!user || !editingEvent) return;
+    const title = data.title.trim() || "Neue Session";
+
+    const updatePayload: Record<string, unknown> = {
       title,
-      source: data.sourceLang,
-      targets: data.targetLanguages.join(","),
-    });
-    navigate(`/speaker/${id}?${params}`);
+      source_lang: data.sourceLang,
+      target_languages: data.targetLanguages,
+      speaker_name: data.speakerName.trim() || null,
+      default_tts_mode: data.defaultTtsMode,
+      scheduled_at: data.scheduledAt || null,
+    };
+
+    // Only update password_hash if the user explicitly changed the password
+    if (data.passwordChanged) {
+      updatePayload.password_hash = data.password ? await sha256(data.password) : null;
+    }
+
+    const { error } = await supabase
+      .from("events")
+      .update(updatePayload)
+      .eq("id", editingEvent.id)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Event update error:", error.message);
+    }
+
+    setEditingEvent(null);
+    fetchEvents();
   };
 
   // ── Delete event ─────────────────────────────────────────────────────────
-  const handleDelete = async (id: string) => {
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return;
+    const id = deleteConfirmId;
+    setDeleteConfirmId(null);
     setDeletingId(id);
     const { error } = await supabase
       .from("events")
@@ -140,6 +173,9 @@ export function Dashboard() {
       title: event.title,
       targets: event.target_languages.join(","),
     });
+    if (event.default_tts_mode && event.default_tts_mode !== "off") {
+      params.set("tts", event.default_tts_mode);
+    }
     await navigator.clipboard.writeText(
       `${base}/session/${event.id}?${params}`
     );
@@ -231,7 +267,7 @@ export function Dashboard() {
               <div>
                 <h2 className="font-semibold text-foreground">Neue Session erstellen</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  Konfiguriere Sprachen und starte die Live-Übersetzung.
+                  Konfiguriere Sprachen und speichere die Session.
                 </p>
               </div>
               <button
@@ -285,17 +321,31 @@ export function Dashboard() {
           </div>
         ) : (
           <>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Letzte Sessions
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                {events.length} Session{events.length !== 1 ? "s" : ""}
-              </span>
-            </div>
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const upcoming = events.filter(
+                (e) => e.scheduled_at && e.scheduled_at >= today
+              );
+              const past = events.filter(
+                (e) => !e.scheduled_at || e.scheduled_at < today
+              );
+              const sections = [
+                { label: "Kommende Sessions", items: upcoming },
+                { label: "Vergangene Sessions", items: past },
+              ].filter((s) => s.items.length > 0);
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {events.map((event) => {
+              return sections.map((section) => (
+                <div key={section.label} className="mb-8 last:mb-0">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {section.label}
+                    </h2>
+                    <span className="text-xs text-muted-foreground">
+                      {section.items.length} Session{section.items.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {section.items.map((event) => {
                 const sourceLang = event.source_lang as SupportedLanguage;
                 const targetLangs = event.target_languages as SupportedLanguage[];
                 const speakerParams = new URLSearchParams({
@@ -303,6 +353,12 @@ export function Dashboard() {
                   source: event.source_lang,
                   targets: event.target_languages.join(","),
                 });
+                if (event.speaker_name) {
+                  speakerParams.set("speaker", event.speaker_name);
+                }
+                if (event.default_tts_mode && event.default_tts_mode !== "off") {
+                  speakerParams.set("tts", event.default_tts_mode);
+                }
 
                 return (
                   <div
@@ -315,18 +371,26 @@ export function Dashboard() {
                     <div className="flex flex-1 flex-col p-5 pt-6">
                       {/* Title + delete */}
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <h3 className="font-semibold leading-tight text-foreground truncate">
-                            {event.title}
-                          </h3>
-                          {event.password_hash && (
-                            <span title="Passwortgeschützt">
-                              <Lock className="size-3 shrink-0 text-muted-foreground/60" />
-                            </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="font-semibold leading-tight text-foreground truncate">
+                              {event.title}
+                            </h3>
+                            {event.password_hash && (
+                              <span title="Passwortgeschützt">
+                                <Lock className="size-3 shrink-0 text-muted-foreground/60" />
+                              </span>
+                            )}
+                          </div>
+                          {event.speaker_name && (
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground truncate">
+                              <UserCircle className="size-3 shrink-0" />
+                              {event.speaker_name}
+                            </p>
                           )}
                         </div>
                         <button
-                          onClick={() => handleDelete(event.id)}
+                          onClick={() => setDeleteConfirmId(event.id)}
                           disabled={deletingId === event.id}
                           className="shrink-0 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
                           title="Session löschen"
@@ -339,11 +403,13 @@ export function Dashboard() {
                         </button>
                       </div>
 
-                      {/* Time */}
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Clock className="size-3" />
-                        {timeAgo(event.created_at)}
-                      </div>
+                      {/* Date */}
+                      {event.scheduled_at && (
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Clock className="size-3" />
+                          {formatDate(event.scheduled_at)}
+                        </div>
+                      )}
 
                       {/* Language flow */}
                       <div className="mt-4 flex flex-wrap items-center gap-1.5">
@@ -363,13 +429,6 @@ export function Dashboard() {
                         ))}
                       </div>
 
-                      {event.speaker_name && (
-                        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Users className="size-3" />
-                          {event.speaker_name}
-                        </div>
-                      )}
-
                       {/* Actions */}
                       <div className="mt-auto flex gap-2 pt-4">
                         {/* Open session — view transcript + resume */}
@@ -384,16 +443,12 @@ export function Dashboard() {
                           Öffnen
                         </Button>
 
-                        {/* Session settings / prep */}
+                        {/* Session settings */}
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() =>
-                            navigate(
-                              `/speaker/${event.id}?prep=1&${speakerParams}`
-                            )
-                          }
-                          title="Einstellungen, Unterlagen & Glossar"
+                          onClick={() => setEditingEvent(event)}
+                          title="Einstellungen"
                         >
                           <Settings2 className="size-3.5" />
                         </Button>
@@ -416,7 +471,10 @@ export function Dashboard() {
                   </div>
                 );
               })}
-            </div>
+                  </div>
+                </div>
+              ));
+            })()}
           </>
         )}
       </main>
@@ -433,6 +491,56 @@ export function Dashboard() {
           </Link>
         </div>
       </footer>
+
+      {/* ── Edit Session Dialog ── */}
+      <Dialog open={!!editingEvent} onOpenChange={(open) => { if (!open) setEditingEvent(null); }}>
+        <DialogContent className="max-h-[90svh] overflow-y-auto max-w-[calc(100%-2rem)] sm:max-w-2xl rounded-2xl p-0">
+          <DialogHeader className="border-b border-border px-6 py-5">
+            <DialogTitle>Session bearbeiten</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Passe Titel, Speaker, Sprachen und Voreinstellungen an.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 py-6">
+            {editingEvent && (
+              <CreateSessionForm
+                key={editingEvent.id}
+                onSubmit={handleUpdateSession}
+                submitLabel="Änderungen speichern"
+                initialData={{
+                  title: editingEvent.title,
+                  speakerName: editingEvent.speaker_name ?? "",
+                  scheduledAt: editingEvent.scheduled_at ?? "",
+                  sourceLang: editingEvent.source_lang as SupportedLanguage,
+                  targetLanguages: editingEvent.target_languages as SupportedLanguage[],
+                  defaultTtsMode: (editingEvent.default_tts_mode as TTSMode) ?? "off",
+                  hasPassword: !!editingEvent.password_hash,
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirm Dialog ── */}
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
+        <DialogContent className="max-w-xs rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Session löschen?</DialogTitle>
+            <DialogDescription>
+              Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirmId(null)}>
+              Abbrechen
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={handleDeleteConfirm}>
+              Löschen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

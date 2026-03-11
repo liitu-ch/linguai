@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect } from "react";
-import type { SupportedLanguage, TTSVoiceSettings } from "~/types/session.ts";
+import type { SupportedLanguage } from "~/types/session.ts";
 import { LANGUAGES } from "~/lib/languages.ts";
 
 export type TTSMode = "browser" | "openai" | "off";
@@ -15,46 +15,17 @@ interface UseTTSOptions {
   lang: SupportedLanguage;
   volume?: number;
   rate?: number;
-  voiceSettings?: TTSVoiceSettings;
+  browserVoiceName?: string;
 }
 
-function buildTTSInstructions(settings: TTSVoiceSettings): string {
-  const parts: string[] = [];
-
-  if (settings.whispering) {
-    parts.push("Speak in a whisper.");
-  }
-  if (settings.accent) {
-    parts.push(`Accent: ${settings.accent}.`);
-  }
-  if (settings.tone) {
-    parts.push(`Tone: ${settings.tone}.`);
-  }
-  if (settings.emotionalRange) {
-    parts.push(`Emotional range: ${settings.emotionalRange}.`);
-  }
-  if (settings.speed) {
-    parts.push(`Speed of speech: ${settings.speed}.`);
-  }
-  if (settings.intonation) {
-    parts.push(`Intonation: ${settings.intonation}.`);
-  }
-  if (settings.impressions) {
-    parts.push(`Impressions: ${settings.impressions}.`);
-  }
-
-  return parts.join(" ");
-}
-
-export function useTTS({ mode, lang, volume = 1, rate = 1, voiceSettings }: UseTTSOptions) {
+export function useTTS({ mode, lang, volume = 1, rate = 1, browserVoiceName }: UseTTSOptions) {
   const queueRef = useRef<TTSQueueItem[]>([]);
   const isPlayingRef = useRef(false);
   const spokenIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Stable ref for voice settings to avoid re-creating callbacks
-  const voiceSettingsRef = useRef(voiceSettings);
-  voiceSettingsRef.current = voiceSettings;
+  const browserVoiceNameRef = useRef(browserVoiceName);
+  browserVoiceNameRef.current = browserVoiceName;
 
   // Browser TTS
   const speakBrowser = useCallback(
@@ -65,13 +36,16 @@ export function useTTS({ mode, lang, volume = 1, rate = 1, voiceSettings }: UseT
         utterance.volume = volume;
         utterance.rate = rate;
 
-        // Prefer a voice for the target language
+        // Use user-selected voice, or fall back to a voice for the target language
         const voices = speechSynthesis.getVoices();
-        const native = voices.find(
-          (v) =>
-            v.lang.startsWith(item.lang) && !v.name.includes("Compact")
-        );
-        if (native) utterance.voice = native;
+        const selectedName = browserVoiceNameRef.current;
+        const picked = selectedName
+          ? voices.find((v) => v.name === selectedName)
+          : voices.find(
+              (v) =>
+                v.lang.startsWith(item.lang) && !v.name.includes("Compact")
+            );
+        if (picked) utterance.voice = picked;
 
         utterance.onend = () => resolve();
         utterance.onerror = () => resolve();
@@ -83,24 +57,10 @@ export function useTTS({ mode, lang, volume = 1, rate = 1, voiceSettings }: UseT
   // OpenAI TTS via server proxy
   const speakOpenAI = useCallback(
     async (item: TTSQueueItem): Promise<void> => {
-      const settings = voiceSettingsRef.current;
-      const body: Record<string, unknown> = {
-        text: item.text,
-        lang: item.lang,
-      };
-
-      if (settings) {
-        body.voice = settings.voice;
-        const instructions = buildTTSInstructions(settings);
-        if (instructions) {
-          body.instructions = instructions;
-        }
-      }
-
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ text: item.text, lang: item.lang }),
       });
 
       if (!res.ok) return;

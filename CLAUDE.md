@@ -114,6 +114,27 @@ VITE_SUPABASE_ANON_KEY=eyJ...            # Client-side: Supabase anon key
 VITE_APP_URL=https://your-app.vercel.app # Client-side: QR code URL generation
 ```
 
+## OpenAI Audio API Reference (knowledge/)
+
+The `knowledge/` directory contains OpenAI API documentation for all audio features used in this project. **Consult these files when implementing or modifying audio-related functionality:**
+
+- `knowledge/realtime-transcription.md` — Realtime API transcription sessions (WebSocket, VAD, session config, delta/completed events)
+- `knowledge/speech-to-text.md` — STT overview: transcription models (`gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1`), diarization (`gpt-4o-transcribe-diarize`), streaming, prompting, timestamps
+- `knowledge/create-transcriptions.md` — `POST /audio/transcriptions` endpoint: parameters, response formats (json, diarized_json, verbose_json), usage stats
+- `knowledge/create-translations.md` — `POST /audio/translations` endpoint: translates audio to English (whisper-1 only)
+- `knowledge/text-to-speech.md` — TTS overview: models (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`), 13 built-in voices, `instructions` parameter, streaming, custom voices, output formats
+- `knowledge/create-speech.md` — `POST /audio/speech` endpoint: parameters (input, model, voice, instructions, response_format, speed, stream_format)
+
+### Key facts from the docs
+- **TTS voices:** alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse, marin, cedar (marin/cedar recommended for quality)
+- **TTS instructions:** Only work with `gpt-4o-mini-tts`, NOT with `tts-1`/`tts-1-hd`
+- **Realtime transcription models:** `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`
+- **Realtime audio formats:** `audio/pcm` (24kHz), `audio/pcmu` (G.711 μ-law), `audio/pcma` (G.711 A-law)
+- **Realtime events:** `conversation.item.input_audio_transcription.delta` (incremental) and `.completed` (final)
+- **Noise reduction:** `near_field` (default) or `far_field`
+- **Max TTS input:** 4096 characters
+- **Max upload:** 25 MB for transcription files
+
 ## Important Patterns
 
 ### Callback Ref Pattern (used in hooks)

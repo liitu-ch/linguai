@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   BarChart3,
@@ -69,6 +70,7 @@ export function Speaker() {
   const [elapsed, setElapsed] = useState(0);
 
   const title = searchParams.get("title") || "Session";
+  const speakerName = searchParams.get("speaker") || "";
   const sourceLang = (searchParams.get("source") || "en") as SupportedLanguage;
   const targetLanguages = (searchParams.get("targets") || "es,pt,ms").split(
     ","
@@ -164,7 +166,9 @@ export function Speaker() {
     onSpeechStop: handleSpeechStop,
   });
 
-  const { start, stop, status } = transcriptionMode === "realtime" ? realtime : chunked;
+  const activeTranscription = transcriptionMode === "realtime" ? realtime : chunked;
+  const { start, stop, status } = activeTranscription;
+  const transcriptionError = (activeTranscription as { errorMessage?: string | null }).errorMessage ?? null;
 
   // Timer
   useEffect(() => {
@@ -223,7 +227,15 @@ export function Speaker() {
   const qsParams = new URLSearchParams({
     title,
     targets: targetLanguages.join(","),
+    source: sourceLang,
   });
+  if (speakerName) {
+    qsParams.set("speaker", speakerName);
+  }
+  const defaultTts = searchParams.get("tts");
+  if (defaultTts && defaultTts !== "off") {
+    qsParams.set("tts", defaultTts);
+  }
   const sessionUrl = `${base}/session/${sessionId}?${qsParams}`;
   const isRecording = status === "active" || status === "connecting";
 
@@ -315,6 +327,31 @@ export function Speaker() {
 
       {/* ── Main Content ── */}
       <main className="flex-1">
+
+        {/* ── Error banner ── */}
+        {status === "error" && transcriptionError && (
+          <div className="mx-auto max-w-7xl px-4 pt-4">
+            <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <p className="font-medium">Transkription fehlgeschlagen</p>
+                <p className="mt-1 text-red-400/80">{transcriptionError}</p>
+              </div>
+              <button
+                onClick={start}
+                className="ml-auto shrink-0 rounded bg-red-500/20 px-3 py-1 text-xs font-medium text-red-400 hover:bg-red-500/30"
+              >
+                Erneut versuchen
+              </button>
+              <button
+                onClick={stop}
+                className="shrink-0 text-red-400/60 hover:text-red-400"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Desktop / Tablet layout (≥ md) ── */}
         <div className="hidden md:block">

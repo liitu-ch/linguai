@@ -71,9 +71,12 @@ export function useRealtimeTranscription({
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const seqRef = useRef(0);
   const interimAccRef = useRef("");
   const [status, setStatus] = useState<Status>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Stable refs — frozen at start(), read in callbacks
   const glossaryRef = useRef(glossary);
@@ -106,7 +109,14 @@ export function useRealtimeTranscription({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ language: sourceLangRef.current }),
     });
-    if (!res.ok) throw new Error("Failed to fetch ephemeral token");
+    if (!res.ok) {
+      if (res.status === 504 || res.status === 502 || res.status === 503) {
+        throw new Error(`OpenAI nicht erreichbar (${res.status}). Bitte erneut versuchen.`);
+      }
+      const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      const detail = typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+      throw new Error(`Ephemeral Token fehlgeschlagen: ${detail}`);
+    }
     const data = await res.json();
     return data.token as string;
   }, []);
@@ -165,7 +175,10 @@ export function useRealtimeTranscription({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
           })
-            .then((res) => res.json())
+            .then((res) => {
+              if (!res.ok) throw new Error(`Translation failed (${res.status})`);
+              return res.json();
+            })
             .then((data: TranslateResponse) => {
               channelRef.current?.send({
                 type: "broadcast",
@@ -178,7 +191,10 @@ export function useRealtimeTranscription({
         }
 
         case "error": {
-          console.error("[Realtime] API error:", event.error);
+          const errObj = event.error as Record<string, unknown> | undefined;
+          const msg = (errObj?.message as string) || JSON.stringify(errObj);
+          console.error("[Realtime] API error:", errObj);
+          setErrorMessage(`Realtime API: ${msg}`);
           setStatus("error");
           break;
         }
@@ -189,6 +205,7 @@ export function useRealtimeTranscription({
 
   const start = useCallback(async () => {
     setStatus("connecting");
+    setErrorMessage(null);
     try {
       const ephemeralKey = await fetchEphemeralToken();
 
@@ -219,7 +236,6 @@ export function useRealtimeTranscription({
         JSON.stringify({
           type: "transcription_session.update",
           session: {
-            input_audio_format: "pcm16",
             input_audio_transcription: {
               model: "gpt-4o-transcribe",
               language: sourceLangRef.current,
@@ -231,9 +247,6 @@ export function useRealtimeTranscription({
               silence_duration_ms: silenceDurationMsRef.current,
               prefix_padding_ms: 300,
             },
-            input_audio_noise_reduction: {
-              type: "near_field",
-            },
           },
         })
       );
@@ -244,9 +257,7 @@ export function useRealtimeTranscription({
       });
 
       ws.addEventListener("close", () => {
-        if (status === "active") {
-          setStatus("idle");
-        }
+        setStatus((prev) => (prev === "active" ? "idle" : prev));
       });
 
       // 4. Capture microphone audio
@@ -265,7 +276,9 @@ export function useRealtimeTranscription({
       await audioContext.audioWorklet.addModule("/pcm16-worklet.js");
 
       const source = audioContext.createMediaStreamSource(micStream);
+      sourceNodeRef.current = source;
       const workletNode = new AudioWorkletNode(audioContext, "pcm16-processor");
+      workletNodeRef.current = workletNode;
 
       workletNode.port.onmessage = (e: MessageEvent) => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -284,26 +297,35 @@ export function useRealtimeTranscription({
 
       setStatus("active");
     } catch (err) {
-      console.error("[Realtime] Setup failed:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Realtime] Setup failed:", msg);
+      setErrorMessage(msg);
       setStatus("error");
     }
   }, [fetchEphemeralToken, handleRealtimeEvent]);
 
   const stop = useCallback(() => {
+    // Disconnect audio nodes first to stop data flow
+    workletNodeRef.current?.port.close();
+    workletNodeRef.current?.disconnect();
+    workletNodeRef.current = null;
+    sourceNodeRef.current?.disconnect();
+    sourceNodeRef.current = null;
+
     // Close WebSocket
     wsRef.current?.close();
     wsRef.current = null;
 
-    // Stop microphone
+    // Stop microphone tracks
     micStreamRef.current?.getTracks().forEach((track) => track.stop());
     micStreamRef.current = null;
 
     // Close audio context
-    audioContextRef.current?.close();
+    void audioContextRef.current?.close();
     audioContextRef.current = null;
 
     setStatus("idle");
   }, []);
 
-  return { start, stop, status };
+  return { start, stop, status, errorMessage };
 }

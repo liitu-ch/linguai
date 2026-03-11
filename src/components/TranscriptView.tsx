@@ -13,6 +13,8 @@ interface TranscriptViewProps {
   segments: TranscriptSegment[];
   interimText?: string;
   isSpeaking?: boolean;
+  /** Reveal translated segments word-by-word (Spotify-style) */
+  animateWords?: boolean;
   className?: string;
 }
 
@@ -66,24 +68,61 @@ export function TranscriptView({
   segments,
   interimText,
   isSpeaking = false,
+  animateWords = false,
   className,
 }: TranscriptViewProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [textSize, setTextSize] = useState<TextSize>(loadTextSize);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [segments.length, interimText]);
-
-  useEffect(() => {
-    localStorage.setItem("transcript-text-size", textSize);
-  }, [textSize]);
+  // Word-by-word animation state
+  const [revealedWords, setRevealedWords] = useState(0);
+  const animatingIdRef = useRef<string | null>(null);
+  const animIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const hasContent = segments.length > 0 || !!interimText;
   const previousSegments = segments.slice(0, -1);
   const currentSegment = segments.at(-1);
   const cfg = TEXT_SIZE_CONFIG[textSize];
   const sizeIdx = SIZE_ORDER.indexOf(textSize);
+
+  const currentWords = currentSegment?.text.split(/\s+/) ?? [];
+
+  // Word-by-word reveal animation
+  useEffect(() => {
+    if (!animateWords || !currentSegment) return;
+    if (currentSegment.id === animatingIdRef.current) return;
+
+    if (animIntervalRef.current) clearInterval(animIntervalRef.current);
+
+    animatingIdRef.current = currentSegment.id;
+    const words = currentSegment.text.split(/\s+/);
+    let count = 0;
+    setRevealedWords(0);
+
+    animIntervalRef.current = setInterval(() => {
+      count++;
+      setRevealedWords(count);
+      if (count >= words.length) {
+        clearInterval(animIntervalRef.current!);
+        animIntervalRef.current = null;
+      }
+    }, 80);
+
+    return () => {
+      if (animIntervalRef.current) {
+        clearInterval(animIntervalRef.current);
+        animIntervalRef.current = null;
+      }
+    };
+  }, [currentSegment?.id, animateWords]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [segments.length, interimText, revealedWords]);
+
+  useEffect(() => {
+    localStorage.setItem("transcript-text-size", textSize);
+  }, [textSize]);
 
   return (
     <div
@@ -153,10 +192,22 @@ export function TranscriptView({
               })}
             </div>
 
-            {/* Current final segment — large and bright */}
+            {/* Current final segment — large and bright, with optional word-by-word reveal */}
             {currentSegment && !interimText && (
               <p className={cn("font-medium leading-snug text-foreground", cfg.current)}>
-                {currentSegment.text}
+                {animateWords
+                  ? currentWords.map((word, i) => (
+                      <span
+                        key={i}
+                        className={cn(
+                          "transition-opacity duration-300",
+                          i < revealedWords ? "opacity-100" : "opacity-0"
+                        )}
+                      >
+                        {word}{i < currentWords.length - 1 ? " " : ""}
+                      </span>
+                    ))
+                  : currentSegment.text}
               </p>
             )}
 
