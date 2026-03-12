@@ -2,6 +2,7 @@ import { useRef, useState, useCallback } from "react";
 import type { SupportedLanguage } from "~/types/session.ts";
 import type { TranslateRequestBody, TranslateResponse, GlossaryEntry } from "~/types/api.ts";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { supabase } from "~/lib/supabase.ts";
 
 interface UseRealtimeTranscriptionOptions {
   sourceLang: SupportedLanguage;
@@ -104,9 +105,15 @@ export function useRealtimeTranscription({
   targetLangsRef.current = targetLangs;
 
   const fetchEphemeralToken = useCallback(async (): Promise<string> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.access_token) {
+      headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+    }
+
     const res = await fetch("/api/realtime-token", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ language: sourceLangRef.current }),
     });
     if (!res.ok) {
@@ -170,11 +177,20 @@ export function useRealtimeTranscription({
             context: currentContext?.trim() || undefined,
           };
 
-          fetch("/api/translate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          })
+          // Get auth headers for user-key resolution
+          const getTranslateHeaders = async () => {
+            const h: Record<string, string> = { "Content-Type": "application/json" };
+            const { data: s } = await supabase.auth.getSession();
+            if (s.session?.access_token) h.Authorization = `Bearer ${s.session.access_token}`;
+            return h;
+          };
+
+          getTranslateHeaders()
+            .then((h) => fetch("/api/translate", {
+              method: "POST",
+              headers: h,
+              body: JSON.stringify(body),
+            }))
             .then((res) => {
               if (!res.ok) throw new Error(`Translation failed (${res.status})`);
               return res.json();
@@ -215,7 +231,6 @@ export function useRealtimeTranscription({
         [
           "realtime",
           `openai-insecure-api-key.${ephemeralKey}`,
-          "openai-beta.realtime-v1",
         ]
       );
       wsRef.current = ws;
@@ -234,18 +249,23 @@ export function useRealtimeTranscription({
       // 2. Configure transcription session
       ws.send(
         JSON.stringify({
-          type: "transcription_session.update",
+          type: "session.update",
           session: {
-            input_audio_transcription: {
-              model: "gpt-4o-transcribe",
-              language: sourceLangRef.current,
-              ...(prompt ? { prompt } : {}),
-            },
-            turn_detection: {
-              type: "server_vad",
-              threshold: vadThresholdRef.current,
-              silence_duration_ms: silenceDurationMsRef.current,
-              prefix_padding_ms: 300,
+            type: "transcription",
+            audio: {
+              input: {
+                transcription: {
+                  model: "gpt-4o-transcribe",
+                  language: sourceLangRef.current,
+                  ...(prompt ? { prompt } : {}),
+                },
+                turn_detection: {
+                  type: "server_vad",
+                  threshold: vadThresholdRef.current,
+                  silence_duration_ms: silenceDurationMsRef.current,
+                  prefix_padding_ms: 300,
+                },
+              },
             },
           },
         })

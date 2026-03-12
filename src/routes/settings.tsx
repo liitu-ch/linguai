@@ -12,6 +12,9 @@ import {
   Eye,
   EyeOff,
   TriangleAlert,
+  KeyRound,
+  ShieldCheck,
+  X,
 } from "lucide-react";
 import { Button } from "~/components/ui/button.tsx";
 import { Input } from "~/components/ui/input.tsx";
@@ -24,7 +27,9 @@ import {
   CardTitle,
 } from "~/components/ui/card.tsx";
 import { useAuth } from "~/hooks/useAuth.ts";
+import { useApiKeys, type ApiKeyInfo } from "~/hooks/useApiKeys.ts";
 import { supabase } from "~/lib/supabase.ts";
+import type { ApiProvider } from "~/types/database.ts";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,11 +53,184 @@ function StatusMsg({ status }: { status: Status }) {
   );
 }
 
+// ─── Provider config ─────────────────────────────────────────────────────────
+
+const PROVIDERS: { id: ApiProvider; name: string; placeholder: string; description: string; permissions?: string[] }[] = [
+  {
+    id: "openai",
+    name: "OpenAI",
+    placeholder: "sk-...",
+    description: "Für Transkription (STT), Übersetzung und Premium-Sprachausgabe (TTS)",
+  },
+  {
+    id: "elevenlabs",
+    name: "ElevenLabs",
+    placeholder: "sk_...",
+    description: "Für hochwertige Sprachausgabe (TTS) und Transkription (STT)",
+    permissions: [
+      "Text zu Sprache (Zugriff)",
+      "Sprache zu Sprache (Zugriff)",
+      "Benutzer (Lesen)",
+    ],
+  },
+];
+
+// ─── Single Provider Key Row ─────────────────────────────────────────────────
+
+function ProviderKeyRow({
+  provider,
+  existing,
+  onSave,
+  onDelete,
+}: {
+  provider: (typeof PROVIDERS)[number];
+  existing?: ApiKeyInfo;
+  onSave: (provider: ApiProvider, key: string) => Promise<{ valid: boolean; error?: string }>;
+  onDelete: (provider: ApiProvider) => Promise<{ error?: string }>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+
+  const handleSave = async () => {
+    if (!keyInput.trim()) return;
+    setSaving(true);
+    setStatus(null);
+    const result = await onSave(provider.id, keyInput.trim());
+    setSaving(false);
+    if (result.error) {
+      setStatus({ ok: false, msg: result.error });
+    } else if (result.valid) {
+      setStatus({ ok: true, msg: "API-Schlüssel gespeichert und validiert." });
+      setEditing(false);
+      setKeyInput("");
+    } else {
+      setStatus({ ok: false, msg: "Schlüssel gespeichert, aber Validierung fehlgeschlagen. Bitte prüfe den Schlüssel." });
+      setEditing(false);
+      setKeyInput("");
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setStatus(null);
+    const result = await onDelete(provider.id);
+    setDeleting(false);
+    if (result.error) {
+      setStatus({ ok: false, msg: result.error });
+    } else {
+      setStatus({ ok: true, msg: "API-Schlüssel entfernt." });
+      setEditing(false);
+      setKeyInput("");
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-background p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{provider.name}</p>
+          <p className="text-xs text-muted-foreground">{provider.description}</p>
+        </div>
+        {existing && !editing && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            {existing.is_valid ? (
+              <ShieldCheck className="size-4 text-emerald-500" />
+            ) : (
+              <TriangleAlert className="size-4 text-amber-500" />
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Permissions hint */}
+      {provider.permissions && (
+        <div className="rounded-lg bg-muted/30 px-3 py-2">
+          <p className="text-[11px] font-medium text-muted-foreground mb-1">Benötigte API-Key-Berechtigungen:</p>
+          <ul className="text-[11px] text-muted-foreground/80 space-y-0.5">
+            {provider.permissions.map((p) => (
+              <li key={p} className="flex items-center gap-1.5">
+                <span className="size-1 rounded-full bg-muted-foreground/40 shrink-0" />
+                {p}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {existing && !editing ? (
+        <div className="flex items-center gap-2">
+          <code className="flex-1 rounded-md bg-muted/40 px-3 py-1.5 text-xs font-mono text-muted-foreground">
+            {existing.key_hint}
+          </code>
+          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            Ändern
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-destructive hover:text-destructive"
+          >
+            {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                type={showKey ? "text" : "password"}
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder={provider.placeholder}
+                className="pr-9 font-mono text-sm"
+                autoFocus={editing}
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+              </button>
+            </div>
+            <Button onClick={handleSave} disabled={saving || !keyInput.trim()} size="sm" className="gap-1.5">
+              {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              Speichern
+            </Button>
+            {editing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditing(false);
+                  setKeyInput("");
+                  setStatus(null);
+                }}
+              >
+                <X className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <StatusMsg status={status} />
+    </div>
+  );
+}
+
 // ─── Settings Page ────────────────────────────────────────────────────────────
 
 export function Settings() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { loading: keysLoading, saveKey, deleteKey, getKey } = useApiKeys();
 
   // Profile
   const [displayName, setDisplayName] = useState("");
@@ -248,6 +426,36 @@ export function Settings() {
                 Speichern
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* ── API-Schlüssel ─────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="size-4" />
+              API-Schlüssel
+            </CardTitle>
+            <CardDescription>
+              Hinterlege deine eigenen API-Schlüssel, um KI-Funktionen in deinen Sessions zu nutzen.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {keysLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              PROVIDERS.map((provider) => (
+                <ProviderKeyRow
+                  key={provider.id}
+                  provider={provider}
+                  existing={getKey(provider.id)}
+                  onSave={saveKey}
+                  onDelete={deleteKey}
+                />
+              ))
+            )}
           </CardContent>
         </Card>
 

@@ -13,8 +13,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          id: string
+          user_id: string
+          provider: string
+          encrypted_key: string
+          key_hint: string
+          is_valid: boolean
+          last_validated_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          provider: string
+          encrypted_key: string
+          key_hint?: string
+          is_valid?: boolean
+          last_validated_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          provider?: string
+          encrypted_key?: string
+          key_hint?: string
+          is_valid?: boolean
+          last_validated_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       events: {
         Row: {
+          allowed_tts_modes: string[] | null
           created_at: string
           default_tts_mode: string | null
           expires_at: string
@@ -23,13 +68,17 @@ export type Database = {
           scheduled_at: string | null
           source_lang: string
           speaker_name: string | null
+          stt_provider: string | null
           status: string
           target_languages: string[]
           title: string
+          tts_provider: string | null
+          tts_speed: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          allowed_tts_modes?: string[] | null
           created_at?: string
           default_tts_mode?: string | null
           expires_at?: string
@@ -38,13 +87,17 @@ export type Database = {
           scheduled_at?: string | null
           source_lang: string
           speaker_name?: string | null
+          stt_provider?: string | null
           status?: string
           target_languages?: string[]
           title?: string
+          tts_provider?: string | null
+          tts_speed?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          allowed_tts_modes?: string[] | null
           created_at?: string
           default_tts_mode?: string | null
           expires_at?: string
@@ -53,9 +106,12 @@ export type Database = {
           scheduled_at?: string | null
           source_lang?: string
           speaker_name?: string | null
+          stt_provider?: string | null
           status?: string
           target_languages?: string[]
           title?: string
+          tts_provider?: string | null
+          tts_speed?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -120,5 +176,9 @@ export type Database = {
   }
 }
 
+export type ApiKeyRow = Database["public"]["Tables"]["api_keys"]["Row"];
 export type EventRow = Database["public"]["Tables"]["events"]["Row"];
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+
+export type ApiProvider = "openai" | "elevenlabs";
+export type TTSProvider = "openai" | "elevenlabs" | "browser";

@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog.tsx";
 import { useAuth } from "~/hooks/useAuth.ts";
+import { useApiKeys } from "~/hooks/useApiKeys.ts";
 import type { TTSMode } from "~/hooks/useTTS.ts";
 import { supabase } from "~/lib/supabase.ts";
 import { sha256 } from "~/lib/crypto.ts";
@@ -54,6 +55,7 @@ function formatDate(isoString: string): string {
 export function Dashboard() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { hasValidKey } = useApiKeys();
 
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -102,7 +104,10 @@ export function Dashboard() {
       target_languages: data.targetLanguages,
       speaker_name: data.speakerName.trim() || null,
       password_hash: passwordHash,
-      default_tts_mode: data.defaultTtsMode,
+      default_tts_mode: data.allowedTtsModes.includes("openai") ? "openai" : data.allowedTtsModes.includes("browser") ? "browser" : "off",
+      allowed_tts_modes: data.allowedTtsModes,
+      tts_provider: data.ttsProvider,
+      tts_speed: data.ttsSpeed,
       scheduled_at: data.scheduledAt || null,
       status: "active",
     });
@@ -125,7 +130,10 @@ export function Dashboard() {
       source_lang: data.sourceLang,
       target_languages: data.targetLanguages,
       speaker_name: data.speakerName.trim() || null,
-      default_tts_mode: data.defaultTtsMode,
+      default_tts_mode: data.allowedTtsModes.includes("openai") ? "openai" : data.allowedTtsModes.includes("browser") ? "browser" : "off",
+      allowed_tts_modes: data.allowedTtsModes,
+      tts_provider: data.ttsProvider,
+      tts_speed: data.ttsSpeed,
       scheduled_at: data.scheduledAt || null,
     };
 
@@ -172,9 +180,18 @@ export function Dashboard() {
     const params = new URLSearchParams({
       title: event.title,
       targets: event.target_languages.join(","),
+      source: event.source_lang,
     });
-    if (event.default_tts_mode && event.default_tts_mode !== "off") {
-      params.set("tts", event.default_tts_mode);
+    if (event.speaker_name) {
+      params.set("speaker", event.speaker_name);
+    }
+    const allowedModes = event.allowed_tts_modes ?? (event.default_tts_mode ? [event.default_tts_mode] : ["off"]);
+    params.set("allowedTts", allowedModes.join(","));
+    if (event.tts_provider && event.tts_provider !== "openai") {
+      params.set("ttsProvider", event.tts_provider);
+    }
+    if (event.tts_speed != null && event.tts_speed !== 1.1) {
+      params.set("ttsSpeed", String(event.tts_speed));
     }
     await navigator.clipboard.writeText(
       `${base}/session/${event.id}?${params}`
@@ -278,7 +295,7 @@ export function Dashboard() {
               </button>
             </div>
             <div className="px-6 py-6">
-              <CreateSessionForm onSubmit={handleCreateSession} />
+              <CreateSessionForm onSubmit={handleCreateSession} hasValidKey={hasValidKey} />
             </div>
           </div>
         )}
@@ -356,8 +373,13 @@ export function Dashboard() {
                 if (event.speaker_name) {
                   speakerParams.set("speaker", event.speaker_name);
                 }
-                if (event.default_tts_mode && event.default_tts_mode !== "off") {
-                  speakerParams.set("tts", event.default_tts_mode);
+                const cardAllowedModes = event.allowed_tts_modes ?? (event.default_tts_mode ? [event.default_tts_mode] : ["off"]);
+                speakerParams.set("allowedTts", cardAllowedModes.join(","));
+                if (event.tts_provider && event.tts_provider !== "openai") {
+                  speakerParams.set("ttsProvider", event.tts_provider);
+                }
+                if (event.tts_speed != null && event.tts_speed !== 1.1) {
+                  speakerParams.set("ttsSpeed", String(event.tts_speed));
                 }
 
                 return (
@@ -507,13 +529,20 @@ export function Dashboard() {
                 key={editingEvent.id}
                 onSubmit={handleUpdateSession}
                 submitLabel="Änderungen speichern"
+                hasValidKey={hasValidKey}
                 initialData={{
                   title: editingEvent.title,
                   speakerName: editingEvent.speaker_name ?? "",
                   scheduledAt: editingEvent.scheduled_at ?? "",
                   sourceLang: editingEvent.source_lang as SupportedLanguage,
                   targetLanguages: editingEvent.target_languages as SupportedLanguage[],
-                  defaultTtsMode: (editingEvent.default_tts_mode as TTSMode) ?? "off",
+                  allowedTtsModes: editingEvent.allowed_tts_modes
+                    ? (editingEvent.allowed_tts_modes as TTSMode[])
+                    : editingEvent.default_tts_mode
+                      ? [editingEvent.default_tts_mode as TTSMode]
+                      : ["off", "browser"],
+                  ttsProvider: (editingEvent.tts_provider as "openai" | "elevenlabs" | "browser") ?? "openai",
+                  ttsSpeed: editingEvent.tts_speed ?? 1.1,
                   hasPassword: !!editingEvent.password_hash,
                 }}
               />

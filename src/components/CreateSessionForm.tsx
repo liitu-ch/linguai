@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Check, Loader2, Lock, Eye, EyeOff, Save, Volume2, VolumeOff, Sparkles, CalendarDays } from "lucide-react";
+import { Link } from "react-router";
+import { Check, Loader2, Lock, Eye, EyeOff, Save, Volume2, VolumeOff, Sparkles, CalendarDays, AudioLines, TriangleAlert } from "lucide-react";
 import type { SupportedLanguage } from "~/types/session.ts";
 import type { TTSMode } from "~/hooks/useTTS.ts";
+import type { TTSProvider, ApiProvider } from "~/types/database.ts";
 import { LANGUAGE_LIST } from "~/lib/languages.ts";
 import { Button } from "~/components/ui/button.tsx";
 import { Input } from "~/components/ui/input.tsx";
@@ -16,7 +18,9 @@ export interface SessionFormData {
   password: string;
   /** true = password was explicitly changed (set or cleared) */
   passwordChanged: boolean;
-  defaultTtsMode: TTSMode;
+  allowedTtsModes: TTSMode[];
+  ttsProvider: TTSProvider;
+  ttsSpeed: number;
   scheduledAt: string;
 }
 
@@ -25,6 +29,8 @@ interface CreateSessionFormProps {
   loading?: boolean;
   initialData?: Partial<SessionFormData> & { hasPassword?: boolean };
   submitLabel?: string;
+  /** Check if a valid API key exists for a given provider */
+  hasValidKey?: (provider: ApiProvider) => boolean;
 }
 
 export function CreateSessionForm({
@@ -32,6 +38,7 @@ export function CreateSessionForm({
   loading,
   initialData,
   submitLabel = "Session speichern",
+  hasValidKey,
 }: CreateSessionFormProps) {
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [speakerName, setSpeakerName] = useState(initialData?.speakerName ?? "");
@@ -42,7 +49,9 @@ export function CreateSessionForm({
   const [password, setPassword] = useState(initialData?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
-  const [defaultTtsMode, setDefaultTtsMode] = useState<TTSMode>(initialData?.defaultTtsMode ?? "off");
+  const [allowedTtsModes, setAllowedTtsModes] = useState<TTSMode[]>(initialData?.allowedTtsModes ?? ["off", "browser"]);
+  const [ttsProvider, setTtsProvider] = useState<TTSProvider>(initialData?.ttsProvider ?? "openai");
+  const [ttsSpeed, setTtsSpeed] = useState(initialData?.ttsSpeed ?? 1.1);
 
   const toggleTarget = (lang: SupportedLanguage) => {
     setTargetLanguages((prev) =>
@@ -50,12 +59,24 @@ export function CreateSessionForm({
     );
   };
 
+  const toggleTtsMode = (mode: TTSMode) => {
+    setAllowedTtsModes((prev) => {
+      if (prev.includes(mode)) {
+        // Don't allow removing the last mode
+        if (prev.length <= 1) return prev;
+        return prev.filter((m) => m !== mode);
+      }
+      return [...prev, mode];
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (targetLanguages.length === 0) return;
+    if (allowedTtsModes.length === 0) return;
     // Require password only if protection is on AND (it's new or was changed)
     if (isProtected && !password.trim() && (!initialData?.hasPassword || passwordChanged)) return;
-    onSubmit({ title, sourceLang, targetLanguages, speakerName, password: isProtected ? password : "", passwordChanged, defaultTtsMode, scheduledAt });
+    onSubmit({ title, sourceLang, targetLanguages, speakerName, password: isProtected ? password : "", passwordChanged, allowedTtsModes, ttsProvider, ttsSpeed, scheduledAt });
   };
 
   const availableTargets = LANGUAGE_LIST.filter((l) => l.code !== sourceLang);
@@ -281,7 +302,7 @@ export function CreateSessionForm({
         </div>
       </div>
 
-      {/* ── Step 4: Default TTS ── */}
+      {/* ── Step 4: Allowed TTS Modes ── */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <div
@@ -292,24 +313,24 @@ export function CreateSessionForm({
           >
             4
           </div>
-          <h3 className="font-semibold">Standard-Sprachausgabe</h3>
+          <h3 className="font-semibold">Sprachausgabe-Optionen</h3>
           <span className="text-xs text-muted-foreground">
-            Voreinstellung für Zuhörer
+            Verfügbar für Zuhörer
           </span>
         </div>
         <div className="grid grid-cols-1 gap-2 pl-9 sm:grid-cols-3">
           {([
             { value: "off" as const, label: "Nur Text", icon: VolumeOff, description: "Keine Sprachausgabe" },
             { value: "browser" as const, label: "Browser-Stimme", icon: Volume2, description: "Kostenlos, Systemstimme" },
-            { value: "openai" as const, label: "Premium-Stimme", icon: Sparkles, description: "KI-Stimme (OpenAI)" },
+            { value: "openai" as const, label: "Premium-Stimme", icon: Sparkles, description: "KI-Stimme (API)" },
           ]).map((opt) => {
-            const isActive = defaultTtsMode === opt.value;
+            const isActive = allowedTtsModes.includes(opt.value);
             const Icon = opt.icon;
             return (
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setDefaultTtsMode(opt.value)}
+                onClick={() => toggleTtsMode(opt.value)}
                 className={cn(
                   "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm text-left transition-all",
                   isActive
@@ -317,19 +338,147 @@ export function CreateSessionForm({
                     : "border-border bg-background hover:border-primary/30 hover:bg-primary/[0.02]"
                 )}
               >
+                <div
+                  className={cn(
+                    "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
+                    isActive
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-muted-foreground/30"
+                  )}
+                >
+                  {isActive && <Check className="size-3" />}
+                </div>
                 <Icon className={cn("size-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
                 <div className="min-w-0">
                   <span className="font-medium truncate">{opt.label}</span>
                   <p className="text-xs text-muted-foreground">{opt.description}</p>
                 </div>
-                {isActive && (
-                  <Check className="ml-auto size-3.5 shrink-0 text-primary" />
-                )}
               </button>
             );
           })}
         </div>
+        <p className="pl-9 text-xs text-muted-foreground">
+          Wähle mindestens eine Option. Zuhörer sehen nur die aktivierten Optionen.
+        </p>
       </div>
+
+      {/* ── Step 5: TTS Provider (only when premium TTS) ── */}
+      {allowedTtsModes.includes("openai") && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                "bg-primary text-primary-foreground"
+              )}
+            >
+              5
+            </div>
+            <h3 className="font-semibold">TTS-Anbieter</h3>
+            <span className="text-xs text-muted-foreground">
+              Welcher Dienst für die Sprachausgabe?
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 pl-9 sm:grid-cols-2">
+            {([
+              { value: "openai" as const, label: "OpenAI", icon: Sparkles, description: "gpt-4o-mini-tts — natürlich, mit Stimmanweisungen" },
+              { value: "elevenlabs" as const, label: "ElevenLabs", icon: AudioLines, description: "eleven_multilingual_v2 — hochwertige Stimmen" },
+            ]).map((opt) => {
+              const isActive = ttsProvider === opt.value;
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setTtsProvider(opt.value)}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm text-left transition-all",
+                    isActive
+                      ? "border-primary bg-primary/5 text-primary ring-1 ring-primary/20"
+                      : "border-border bg-background hover:border-primary/30 hover:bg-primary/[0.02]"
+                  )}
+                >
+                  <Icon className={cn("size-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                  <div className="min-w-0">
+                    <span className="font-medium truncate">{opt.label}</span>
+                    <p className="text-xs text-muted-foreground">{opt.description}</p>
+                  </div>
+                  {isActive && (
+                    <Check className="ml-auto size-3.5 shrink-0 text-primary" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 6: TTS Speed (only OpenAI) ── */}
+      {allowedTtsModes.includes("openai") && ttsProvider === "openai" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                "bg-primary text-primary-foreground"
+              )}
+            >
+              6
+            </div>
+            <h3 className="font-semibold">Sprechgeschwindigkeit</h3>
+            <span className="text-xs text-muted-foreground">
+              Gilt für alle Zuhörer
+            </span>
+          </div>
+          <div className="pl-9">
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3">
+              <span className="text-xs text-muted-foreground">0.5x</span>
+              <input
+                type="range"
+                min={0.5}
+                max={2.0}
+                step={0.1}
+                value={ttsSpeed}
+                onChange={(e) => setTtsSpeed(parseFloat(e.target.value))}
+                className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-muted accent-indigo-500"
+              />
+              <span className="w-10 text-right text-sm font-medium tabular-nums text-foreground">{ttsSpeed.toFixed(1)}x</span>
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Nur OpenAI TTS unterstützt Geschwindigkeitsanpassung. ElevenLabs verwendet Standardgeschwindigkeit.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Missing API Key Warning ── */}
+      {hasValidKey && (() => {
+        const missing: string[] = [];
+        // OpenAI key is always needed (for STT + translation)
+        if (!hasValidKey("openai")) missing.push("OpenAI");
+        // ElevenLabs only if selected as TTS provider
+        if (allowedTtsModes.includes("openai") && ttsProvider === "elevenlabs" && !hasValidKey("elevenlabs")) {
+          missing.push("ElevenLabs");
+        }
+        if (missing.length === 0) return null;
+        return (
+          <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+            <TriangleAlert className="size-4 shrink-0 text-amber-500 mt-0.5" />
+            <div className="min-w-0 text-sm">
+              <p className="font-medium text-foreground">
+                Fehlende API-Schlüssel: {missing.join(", ")}
+              </p>
+              <p className="mt-0.5 text-muted-foreground">
+                Hinterlege deine Schlüssel in den{" "}
+                <Link to="/dashboard/settings" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
+                  Profileinstellungen
+                </Link>
+                , damit die Session funktioniert.
+              </p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Submit ── */}
       <Button

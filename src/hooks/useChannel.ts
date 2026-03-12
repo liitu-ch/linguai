@@ -8,6 +8,7 @@ interface UseChannelOptions {
   onSegment: (segment: TranslationSegment) => void;
   onInterim?: (text: string) => void;
   onSpeechState?: (speaking: boolean) => void;
+  onTtsSpeed?: (speed: number) => void;
   enabled?: boolean;
   /** Track this client's presence so the speaker can see listener count */
   trackPresence?: boolean;
@@ -20,6 +21,7 @@ export function useChannel({
   onSegment,
   onInterim,
   onSpeechState,
+  onTtsSpeed,
   enabled = true,
   trackPresence = false,
 }: UseChannelOptions) {
@@ -30,6 +32,8 @@ export function useChannel({
   onInterimRef.current = onInterim;
   const onSpeechStateRef = useRef(onSpeechState);
   onSpeechStateRef.current = onSpeechState;
+  const onTtsSpeedRef = useRef(onTtsSpeed);
+  onTtsSpeedRef.current = onTtsSpeed;
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("closed");
 
@@ -52,6 +56,10 @@ export function useChannel({
       .on("broadcast", { event: "speech_state" }, ({ payload }) => {
         const { speaking } = payload as { speaking: boolean };
         onSpeechStateRef.current?.(speaking);
+      })
+      .on("broadcast", { event: "tts_speed" }, ({ payload }) => {
+        const { speed } = payload as { speed: number };
+        onTtsSpeedRef.current?.(speed);
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {

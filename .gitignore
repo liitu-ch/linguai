@@ -6,3 +6,6 @@ dist/
 .claude/
 .mcp.json
 .env*.local
+supabase-migration-api-keys.sql
+.mcp.json
+.mcp.json

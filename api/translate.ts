@@ -1,8 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import OpenAI from "openai";
 import { nanoid } from "nanoid";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+import { authenticateRequest, getUserApiKey, AuthError } from "./_lib/auth.ts";
 
 const LANG_NAMES: Record<string, string> = {
   en: "English",
@@ -50,28 +49,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { text, sourceLang, targetLangs, sequenceNum, glossary, context } = req.body;
+  try {
+    // Resolve API key — authenticated user key or fallback to env
+    let apiKey: string;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      const userId = await authenticateRequest(req);
+      apiKey = await getUserApiKey(userId, "openai");
+    } else {
+      apiKey = process.env.OPENAI_API_KEY ?? "";
+      if (!apiKey) {
+        return res.status(500).json({ error: "OPENAI_API_KEY not configured" });
+      }
+    }
 
-  if (!text || !sourceLang || !targetLangs?.length) {
-    return res.status(400).json({ error: "Missing required fields" });
+    const openai = new OpenAI({ apiKey });
+
+    const { text, sourceLang, targetLangs, sequenceNum, glossary, context } = req.body;
+
+    if (!text || !sourceLang || !targetLangs?.length) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const translations = await batchTranslate(openai, text, sourceLang, targetLangs, glossary, context);
+
+    const segment = {
+      id: nanoid(),
+      sequenceNum: sequenceNum ?? 0,
+      originalText: text,
+      originalLang: sourceLang,
+      translations,
+      timestampMs: Date.now(),
+      isFinal: true,
+    };
+
+    return res.json({ segment });
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    console.error("[translate] Error:", err);
+    return res.status(500).json({ error: "Translation failed" });
   }
-
-  const translations = await batchTranslate(text, sourceLang, targetLangs, glossary, context);
-
-  const segment = {
-    id: nanoid(),
-    sequenceNum: sequenceNum ?? 0,
-    originalText: text,
-    originalLang: sourceLang,
-    translations,
-    timestampMs: Date.now(),
-    isFinal: true,
-  };
-
-  return res.json({ segment });
 }
 
 async function batchTranslate(
+  openai: OpenAI,
   text: string,
   sourceLang: string,
   targetLangs: string[],

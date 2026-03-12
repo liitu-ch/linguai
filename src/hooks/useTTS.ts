@@ -1,6 +1,8 @@
 import { useRef, useCallback, useEffect } from "react";
 import type { SupportedLanguage } from "~/types/session.ts";
+import type { TTSProvider } from "~/types/database.ts";
 import { LANGUAGES } from "~/lib/languages.ts";
+import { supabase } from "~/lib/supabase.ts";
 
 export type TTSMode = "browser" | "openai" | "off";
 
@@ -15,10 +17,13 @@ interface UseTTSOptions {
   lang: SupportedLanguage;
   volume?: number;
   rate?: number;
+  speed?: number;
   browserVoiceName?: string;
+  /** Which server-side TTS provider to use when mode is "openai" */
+  ttsProvider?: TTSProvider;
 }
 
-export function useTTS({ mode, lang, volume = 1, rate = 1, browserVoiceName }: UseTTSOptions) {
+export function useTTS({ mode, lang, volume = 1, rate = 1, speed = 1.1, browserVoiceName, ttsProvider = "openai" }: UseTTSOptions) {
   const queueRef = useRef<TTSQueueItem[]>([]);
   const isPlayingRef = useRef(false);
   const spokenIdsRef = useRef<Set<string>>(new Set());
@@ -26,6 +31,9 @@ export function useTTS({ mode, lang, volume = 1, rate = 1, browserVoiceName }: U
 
   const browserVoiceNameRef = useRef(browserVoiceName);
   browserVoiceNameRef.current = browserVoiceName;
+
+  const ttsProviderRef = useRef(ttsProvider);
+  ttsProviderRef.current = ttsProvider;
 
   // Browser TTS
   const speakBrowser = useCallback(
@@ -54,13 +62,26 @@ export function useTTS({ mode, lang, volume = 1, rate = 1, browserVoiceName }: U
     [volume, rate]
   );
 
-  // OpenAI TTS via server proxy
-  const speakOpenAI = useCallback(
+  // Server TTS (OpenAI or ElevenLabs) via /api/tts
+  const speakServer = useCallback(
     async (item: TTSQueueItem): Promise<void> => {
+      // Get auth token for user-key resolution
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        headers.Authorization = `Bearer ${data.session.access_token}`;
+      }
+
+      const provider = ttsProviderRef.current;
       const res = await fetch("/api/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: item.text, lang: item.lang }),
+        headers,
+        body: JSON.stringify({
+          text: item.text,
+          lang: item.lang,
+          speed,
+          provider: provider === "browser" ? "openai" : provider,
+        }),
       });
 
       if (!res.ok) return;
@@ -83,7 +104,7 @@ export function useTTS({ mode, lang, volume = 1, rate = 1, browserVoiceName }: U
         audio.play().catch(() => resolve());
       });
     },
-    [volume]
+    [volume, speed]
   );
 
   // Queue processor
@@ -97,7 +118,7 @@ export function useTTS({ mode, lang, volume = 1, rate = 1, browserVoiceName }: U
         if (mode === "browser") {
           await speakBrowser(item);
         } else if (mode === "openai") {
-          await speakOpenAI(item);
+          await speakServer(item);
         }
       } catch {
         // Don't block queue on TTS errors
@@ -105,7 +126,7 @@ export function useTTS({ mode, lang, volume = 1, rate = 1, browserVoiceName }: U
     }
 
     isPlayingRef.current = false;
-  }, [mode, speakBrowser, speakOpenAI]);
+  }, [mode, speakBrowser, speakServer]);
 
   const enqueue = useCallback(
     (text: string, segmentId: string, isFinal: boolean) => {

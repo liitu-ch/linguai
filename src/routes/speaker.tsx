@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router";
 import {
   AlertCircle,
@@ -64,6 +64,10 @@ export function Speaker() {
   const [chunkIntervalMs, setChunkIntervalMs] = useState(5000);
   const [silenceDurationMs, setSilenceDurationMs] = useState(300);
   const [vadThreshold, setVadThreshold] = useState(0.5);
+  const [ttsSpeed, setTtsSpeed] = useState(() => {
+    const v = parseFloat(searchParams.get("ttsSpeed") || "");
+    return isNaN(v) ? 1.1 : v;
+  });
 
   // Timer state
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -75,6 +79,19 @@ export function Speaker() {
   const targetLanguages = (searchParams.get("targets") || "es,pt,ms").split(
     ","
   ) as SupportedLanguage[];
+
+  // Broadcast speed changes to listeners
+  const ttsSpeedRef = useRef(ttsSpeed);
+  useEffect(() => {
+    // Only broadcast if speed actually changed (skip initial)
+    if (ttsSpeedRef.current === ttsSpeed) return;
+    ttsSpeedRef.current = ttsSpeed;
+    channel?.send({
+      type: "broadcast",
+      event: "tts_speed",
+      payload: { speed: ttsSpeed },
+    });
+  }, [ttsSpeed, channel]);
 
   // Auto-open prep modal when navigated from dashboard with ?prep=1
   useEffect(() => {
@@ -232,9 +249,16 @@ export function Speaker() {
   if (speakerName) {
     qsParams.set("speaker", speakerName);
   }
-  const defaultTts = searchParams.get("tts");
-  if (defaultTts && defaultTts !== "off") {
-    qsParams.set("tts", defaultTts);
+  const allowedTtsParam = searchParams.get("allowedTts");
+  if (allowedTtsParam) {
+    qsParams.set("allowedTts", allowedTtsParam);
+  }
+  const ttsProviderParam = searchParams.get("ttsProvider");
+  if (ttsProviderParam && ttsProviderParam !== "openai") {
+    qsParams.set("ttsProvider", ttsProviderParam);
+  }
+  if (ttsSpeed !== 1.1) {
+    qsParams.set("ttsSpeed", String(ttsSpeed));
   }
   const sessionUrl = `${base}/session/${sessionId}?${qsParams}`;
   const isRecording = status === "active" || status === "connecting";
@@ -591,6 +615,32 @@ export function Speaker() {
                 onVadThresholdChange={setVadThreshold}
                 isRecording={isRecording}
               />
+
+              {/* TTS Speed (only when premium TTS via OpenAI) */}
+              {searchParams.get("tts") === "openai" && (!searchParams.get("ttsProvider") || searchParams.get("ttsProvider") === "openai") && (
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                    <Zap className="size-3.5" />
+                    Sprechgeschwindigkeit
+                  </div>
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
+                    <span className="text-xs text-muted-foreground">0.5x</span>
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={2.0}
+                      step={0.1}
+                      value={ttsSpeed}
+                      onChange={(e) => setTtsSpeed(parseFloat(e.target.value))}
+                      className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-muted accent-indigo-500"
+                    />
+                    <span className="w-10 text-right text-sm font-medium tabular-nums text-foreground">{ttsSpeed.toFixed(1)}x</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/60">
+                    Gilt für alle Zuhörer mit OpenAI-Sprachausgabe. Änderungen werden live übertragen.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </>

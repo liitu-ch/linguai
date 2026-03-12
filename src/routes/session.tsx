@@ -40,6 +40,7 @@ import type {
   SupportedLanguage,
   TranslationSegment,
 } from "~/types/session.ts";
+import type { TTSProvider } from "~/types/database.ts";
 
 const AUDIO_TEST_SENTENCES: Partial<Record<SupportedLanguage, string>> = {
   en: "This is a test. If you can hear this, your audio is working correctly.",
@@ -83,9 +84,13 @@ export function Session() {
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [segments, setSegments] = useState<DisplaySegment[]>([]);
   const [interimText, setInterimText] = useState("");
-  const defaultTts = (searchParams.get("tts") as TTSMode | null) ?? "off";
+  const allowedTtsModes = (searchParams.get("allowedTts")?.split(",") as TTSMode[] | undefined) ?? ["off", "browser"];
+  const ttsProvider = (searchParams.get("ttsProvider") as TTSProvider | null) ?? "openai";
+  // Default to the "best" allowed mode
+  const defaultTts: TTSMode = allowedTtsModes.includes("openai") ? "openai" : allowedTtsModes.includes("browser") ? "browser" : "off";
   const [ttsMode, setTtsMode] = useState<TTSMode>(defaultTts);
   const [selectedTtsMode, setSelectedTtsMode] = useState<TTSMode>(defaultTts);
+  const [voiceChoiceDone, setVoiceChoiceDone] = useState(false);
   const [audioSetupDone, setAudioSetupDone] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -93,6 +98,10 @@ export function Session() {
   const showSettingsRef = useRef(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [isTestingTTS, setIsTestingTTS] = useState(false);
+  const [ttsSpeed, setTtsSpeed] = useState(() => {
+    const v = parseFloat(searchParams.get("ttsSpeed") || "");
+    return isNaN(v) ? 1.1 : v;
+  });
 
   // ── Password gate state ───────────────────────────────────────────────────
   const [isProtected, setIsProtected] = useState<boolean | null>(null);
@@ -136,15 +145,18 @@ export function Session() {
   const speakerName = searchParams.get("speaker") || "";
   const t = getSessionTranslations(selectedLang);
 
-  const ttsOptions: { value: TTSMode; label: string; description: string; icon: typeof Volume2 }[] = [
+  const allTtsOptions: { value: TTSMode; label: string; description: string; icon: typeof Volume2 }[] = [
     { value: "off", label: t.textOnly, description: t.textOnlyDescription, icon: VolumeOff },
     { value: "browser", label: t.browserVoice, description: t.browserVoiceDescription, icon: Volume2 },
     { value: "openai", label: t.premiumVoice, description: t.premiumVoiceDescription, icon: Sparkles },
   ];
+  const ttsOptions = allTtsOptions.filter((opt) => allowedTtsModes.includes(opt.value));
 
   const { enqueue } = useTTS({
     mode: ttsMode,
     lang: selectedLang ?? "en",
+    speed: ttsSpeed,
+    ttsProvider,
   });
 
   const handleInterim = useCallback((text: string) => {
@@ -157,6 +169,10 @@ export function Session() {
 
   const handleSpeechState = useCallback((speaking: boolean) => {
     setIsSpeaking(speaking);
+  }, []);
+
+  const handleTtsSpeed = useCallback((speed: number) => {
+    setTtsSpeed(speed);
   }, []);
 
   const handleSegment = useCallback(
@@ -182,6 +198,7 @@ export function Session() {
     onSegment: handleSegment,
     onInterim: handleInterim,
     onSpeechState: handleSpeechState,
+    onTtsSpeed: handleTtsSpeed,
     enabled: !!selectedLang && !!sessionId && audioSetupDone,
     trackPresence: true,
   });
@@ -201,7 +218,7 @@ export function Session() {
           const res = await fetch("/api/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, lang }),
+            body: JSON.stringify({ text, lang, speed: ttsSpeed }),
           });
           if (!res.ok) {
             const data = await res.json().catch(() => null);
@@ -227,24 +244,45 @@ export function Session() {
         speechSynthesis.speak(utterance);
       }
     },
-    []
+    [ttsSpeed]
   );
+
+  // If only one mode is allowed, skip voice selection and auto-confirm
+  const skipVoiceChoice = ttsOptions.length <= 1;
 
   const handleSelectLang = (lang: SupportedLanguage) => {
     setSelectedLang(lang);
     setShowSettings(false);
+    if (skipVoiceChoice) {
+      const onlyMode = ttsOptions[0]?.value ?? "off";
+      setSelectedTtsMode(onlyMode);
+      setTtsMode(onlyMode);
+      setVoiceChoiceDone(true);
+      setAudioSetupDone(true);
+    }
   };
 
-  const handleAudioChoice = (mode: TTSMode) => {
-    setTtsMode(mode);
-    setSelectedTtsMode(mode);
+  const handleVoiceChoiceNext = () => {
+    if (selectedTtsMode === "off") {
+      setTtsMode("off");
+      setAudioSetupDone(true);
+    } else {
+      setVoiceChoiceDone(true);
+    }
+  };
+
+  const handleAudioConfirm = () => {
+    setTtsMode(selectedTtsMode);
     setAudioSetupDone(true);
     speechSynthesis.cancel();
+    testAudioRef.current?.pause();
   };
 
   const handleToggleAudio = () => {
     if (ttsMode === "off") {
-      setTtsMode(selectedTtsMode === "off" ? "browser" : selectedTtsMode);
+      // When turning audio on, pick the best allowed non-off mode
+      const fallback = allowedTtsModes.includes("openai") ? "openai" : allowedTtsModes.includes("browser") ? "browser" : "off";
+      setTtsMode(selectedTtsMode === "off" ? fallback : selectedTtsMode);
     } else {
       setTtsMode("off");
     }
@@ -359,8 +397,8 @@ export function Session() {
     );
   }
 
-  // ── Step 3: Audio/voice setup ──────────────────────────────────────────────
-  if (!audioSetupDone) {
+  // ── Step 3: Voice output selection ────────────────────────────────────────
+  if (!voiceChoiceDone && !audioSetupDone) {
     return (
       <div className="flex min-h-svh flex-col bg-background">
         <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
@@ -373,62 +411,86 @@ export function Session() {
               <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-indigo-500">
                 <Volume2 className="size-7 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-foreground">{t.audioTest}</h1>
+              <h1 className="text-2xl font-bold text-foreground">{t.chooseVoiceOutput}</h1>
               <p className="mt-2 text-sm text-muted-foreground">{t.audioTestDescription}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">{t.chooseVoiceOutput}</p>
               <div className="space-y-2">
                 {ttsOptions.map((opt) => {
                   const isSelected = selectedTtsMode === opt.value;
                   const Icon = opt.icon;
                   return (
-                    <div key={opt.value} className={cn("flex w-full items-center gap-3 rounded-2xl border p-4 transition-all", isSelected ? "border-indigo-500/40 bg-indigo-500/10" : "border-border bg-muted/30")}>
-                      <button onClick={() => { setSelectedTtsMode(opt.value); setTtsMode(opt.value); speechSynthesis.cancel(); }} className={cn("flex size-5 shrink-0 items-center justify-center rounded-full border-2", isSelected ? "border-indigo-400 bg-indigo-400" : "border-muted-foreground/30")}>
+                    <button key={opt.value} onClick={() => { setSelectedTtsMode(opt.value); speechSynthesis.cancel(); }} className={cn("flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-all", isSelected ? "border-indigo-500/40 bg-indigo-500/10" : "border-border bg-muted/30")}>
+                      <div className={cn("flex size-5 shrink-0 items-center justify-center rounded-full border-2", isSelected ? "border-indigo-400 bg-indigo-400" : "border-muted-foreground/30")}>
                         {isSelected && <span className="size-2 rounded-full bg-white" />}
-                      </button>
-                      <button onClick={() => { setSelectedTtsMode(opt.value); setTtsMode(opt.value); speechSynthesis.cancel(); }} className="flex-1 text-left">
+                      </div>
+                      <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <Icon className={cn("size-4", isSelected ? "text-indigo-400" : "text-muted-foreground")} />
                           <span className="text-sm font-medium text-foreground">{opt.label}</span>
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">{opt.description}</p>
-                      </button>
-                      {opt.value !== "off" && (
-                        <button
-                          onClick={() => playTestSentence(selectedLang, opt.value)}
-                          disabled={opt.value === "openai" && isTestingTTS}
-                          className={cn(
-                            "flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground",
-                            opt.value === "openai" && isTestingTTS && "opacity-50"
-                          )}
-                          title={t.playTestSentence}
-                        >
-                          {opt.value === "openai" && isTestingTTS ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <Volume2 className="size-4" />
-                          )}
-                        </button>
-                      )}
-                    </div>
+                      </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
-            {ttsError && (
-              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-xs text-destructive">
-                {ttsError}
-              </p>
-            )}
             {selectedTtsMode !== "off" && (
               <p className="text-center text-[11px] leading-relaxed text-muted-foreground/70">
                 {t.aiVoiceDisclaimer}
               </p>
             )}
-            <Button size="lg" onClick={() => handleAudioChoice(selectedTtsMode)} className="w-full gap-2 bg-indigo-500 text-white hover:bg-indigo-400">
+            <Button size="lg" onClick={handleVoiceChoiceNext} className="w-full gap-2 bg-indigo-500 text-white hover:bg-indigo-400">
               <ArrowRight className="size-4" />
-              {t.join}
+              {selectedTtsMode === "off" ? t.join : t.next}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 4: Audio / speaker test ────────────────────────────────────────────
+  if (!audioSetupDone) {
+    return (
+      <div className="flex min-h-svh flex-col bg-background">
+        <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
+          <div className="w-full max-w-xs space-y-8">
+            <button onClick={() => { setVoiceChoiceDone(false); speechSynthesis.cancel(); testAudioRef.current?.pause(); }} className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+              <ArrowLeft className="size-4" />
+              {t.voiceOutput}
+            </button>
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-indigo-500">
+                <Volume2 className="size-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-foreground">{t.audioTest}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">{t.audioTestInstruction}</p>
+            </div>
+            <button
+              onClick={() => playTestSentence(selectedLang, selectedTtsMode)}
+              disabled={selectedTtsMode === "openai" && isTestingTTS}
+              className={cn(
+                "flex w-full items-center justify-center gap-3 rounded-2xl border border-border bg-muted/30 p-5 text-foreground transition-all hover:border-indigo-500/40 hover:bg-indigo-500/10 active:scale-[0.98]",
+                selectedTtsMode === "openai" && isTestingTTS && "opacity-50"
+              )}
+            >
+              {selectedTtsMode === "openai" && isTestingTTS ? (
+                <Loader2 className="size-6 animate-spin text-indigo-400" />
+              ) : (
+                <Volume2 className="size-6 text-indigo-400" />
+              )}
+              <span className="text-lg font-semibold">{t.playTestSentence}</span>
+            </button>
+            {ttsError && (
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-xs text-destructive">
+                {ttsError}
+              </p>
+            )}
+            <Button size="lg" onClick={handleAudioConfirm} className="w-full gap-2 bg-indigo-500 text-white hover:bg-indigo-400">
+              <Check className="size-4" />
+              {t.audioConfirm}
             </Button>
           </div>
         </div>
