@@ -12,16 +12,17 @@ LinguAI — Free, open web app for AI-powered simultaneous translation at live e
 
 ```bash
 npm run dev          # Frontend only (Vite dev server, port 5173)
-npm run dev:api      # Vercel API routes only (port 3001)
+npm run dev:api      # Supabase Edge Functions locally (supabase functions serve)
 npm run dev:full     # Both concurrently (recommended for full-stack dev)
-vercel dev           # Alternative: Vercel CLI handles both
 npm run build        # tsc -b && vite build
 npm run typecheck    # tsc --noEmit
-vercel deploy        # Preview deployment
-vercel deploy --prod # Production deployment
+vercel deploy        # Preview deployment (frontend only)
+vercel deploy --prod # Production deployment (frontend only)
+supabase functions deploy <name>  # Deploy individual Edge Function
+supabase secrets set KEY=value    # Set Edge Function secrets
 ```
 
-The Vite dev server proxies `/api` requests to `localhost:3001` (configured in `vite.config.ts`).
+Frontend calls Edge Functions via `${VITE_SUPABASE_URL}/functions/v1/<name>` (see `src/lib/api.ts`).
 
 ## Tech Stack
 
@@ -30,7 +31,7 @@ The Vite dev server proxies `/api` requests to `localhost:3001` (configured in `
 - **STT:** OpenAI Realtime API GA via WebSocket (`gpt-4o-transcribe`, PCM16 audio worklet)
 - **Translation:** OpenAI `gpt-4o` with Structured Output JSON (one call translates to all target languages)
 - **TTS:** Multi-provider — Browser Web Speech API (free, default), OpenAI `gpt-4o-mini-tts`, or ElevenLabs `eleven_multilingual_v2`
-- **Backend:** Vercel Serverless Functions (`api/` directory)
+- **Backend:** Supabase Edge Functions (`supabase/functions/`, Deno runtime)
 - **Database/Auth:** Supabase (Postgres + Auth + Realtime)
 - **API Key Management:** User-owned API keys (OpenAI, ElevenLabs) stored encrypted (AES-256-GCM) in `api_keys` table
 - **PWA:** vite-plugin-pwa with workbox
@@ -38,29 +39,29 @@ The Vite dev server proxies `/api` requests to `localhost:3001` (configured in `
 ## Architecture
 
 ```
-Speaker Browser                     Vercel Serverless              Listener Smartphones
-┌─────────────────┐                ┌──────────────┐              ┌──────────────────┐
-│ Mic → PCM16     │                │              │              │                  │
-│ AudioWorklet    │  WebSocket     │ /api/        │   Supabase   │ useChannel hook  │
-│   ↓             │  (OpenAI)     │ translate    │   Realtime   │   ↓              │
-│ OpenAI Realtime │──────────────→│   ↓ gpt-4o   │   broadcast  │ TranscriptView   │
-│ Transcription   │                │   ↓ JSON out │──────────────→│   ↓              │
-│   ↓             │  POST         │              │              │ useTTS hook      │
-│ useRealtime     │──/api/────────→│ /api/tts     │              │ (browser/openai) │
-│ Transcription   │  translate     │              │              │                  │
-│                 │                │ /api/        │              │ Presence tracking│
-│ Supabase channel│  broadcast     │ realtime-    │              │ (listener count) │
-│ (broadcast)     │──────────────→│ token        │              │                  │
-└─────────────────┘                └──────────────┘              └──────────────────┘
+Speaker Browser                     Supabase Edge Functions         Listener Smartphones
+┌─────────────────┐                ┌──────────────────┐           ┌──────────────────┐
+│ Mic → PCM16     │                │                  │           │                  │
+│ AudioWorklet    │  WebSocket     │ translate        │  Supabase │ useChannel hook  │
+│   ↓             │  (OpenAI)     │   ↓ gpt-4o       │  Realtime │   ↓              │
+│ OpenAI Realtime │──────────────→│   ↓ JSON out     │  broadcast│ TranscriptView   │
+│ Transcription   │                │                  │──────────→│   ↓              │
+│   ↓             │  POST         │ tts              │           │ useTTS hook      │
+│ useRealtime     │──fn URL──────→│ realtime-token   │           │ (browser/openai) │
+│ Transcription   │  translate     │ api-keys         │           │                  │
+│                 │                │ validate-key     │           │ Presence tracking│
+│ Supabase channel│  broadcast     │ transcribe       │           │ (listener count) │
+│ (broadcast)     │──────────────→│                  │           │                  │
+└─────────────────┘                └──────────────────┘           └──────────────────┘
 ```
 
 ### Data Flow
-1. Speaker starts recording → `POST /api/realtime-token` → ephemeral client secret via `/v1/realtime/client_secrets`
+1. Speaker starts recording → `POST .../functions/v1/realtime-token` → ephemeral client secret via `/v1/realtime/client_secrets`
 2. WebSocket to `wss://api.openai.com/v1/realtime?intent=transcription` (GA API, no beta header)
 3. PCM16 audio streamed via AudioWorklet → `input_audio_buffer.append`
 4. VAD detects speech end → `conversation.item.input_audio_transcription.completed`
-5. Speaker browser → `POST /api/translate` with transcript text
-6. Server translates to all target languages via gpt-4o Structured Output
+5. Speaker browser → `POST .../functions/v1/translate` with transcript text
+6. Edge Function translates to all target languages via gpt-4o Structured Output
 7. Speaker broadcasts `TranslationSegment` via Supabase channel
 8. Listeners receive segment, display text, enqueue TTS
 
@@ -84,14 +85,16 @@ Speaker Browser                     Vercel Serverless              Listener Smar
 - `src/hooks/useAuth.ts` — Supabase Auth
 - `src/hooks/useApiKeys.ts` — CRUD for user API keys (fetch, save, delete, validate). Used in Settings page.
 
-### API Routes (`api/` — Vercel Serverless)
-- `api/realtime-token.ts` — Creates ephemeral client secret via `POST /v1/realtime/client_secrets` (GA API). Supports user API key via auth header.
-- `api/translate.ts` — Batch translates text to all target languages via gpt-4o. Per-request OpenAI client with user key.
-- `api/tts.ts` — Multi-provider TTS proxy. Dispatches to OpenAI (`gpt-4o-mini-tts`) or ElevenLabs (`eleven_multilingual_v2`) based on `provider` body param.
-- `api/api-keys.ts` — CRUD for encrypted API keys (`GET/POST/DELETE`). Validates keys on save.
-- `api/validate-key.ts` — Stateless key validation endpoint.
-- `api/_lib/encryption.ts` — AES-256-GCM encryption/decryption for API keys.
-- `api/_lib/auth.ts` — Supabase JWT verification + user API key resolution with env-var fallback.
+### Supabase Edge Functions (`supabase/functions/` — Deno runtime)
+- `realtime-token/index.ts` — Creates ephemeral client secret via `POST /v1/realtime/client_secrets` (GA API). Supports user API key via auth header.
+- `translate/index.ts` — Batch translates text to all target languages via gpt-4o. Per-request OpenAI client with user key.
+- `tts/index.ts` — Multi-provider TTS proxy. Dispatches to OpenAI (`gpt-4o-mini-tts`) or ElevenLabs (`eleven_multilingual_v2`) based on `provider` body param.
+- `transcribe/index.ts` — Chunked audio transcription proxy. Supports diarization mode.
+- `api-keys/index.ts` — CRUD for encrypted API keys (`GET/POST/DELETE`). Validates keys on save.
+- `validate-key/index.ts` — Stateless key validation endpoint.
+- `_shared/encryption.ts` — AES-256-GCM encryption/decryption via Web Crypto API.
+- `_shared/auth.ts` — Supabase JWT verification + user API key resolution with env-var fallback.
+- `_shared/cors.ts` — CORS headers and response helpers (cross-origin: Vercel frontend → Supabase Edge Functions).
 
 ### Types
 - `src/types/session.ts` — `SupportedLanguage`, `TranslationSegment`, `TTSVoiceSettings`, `TTSVoice`
@@ -113,13 +116,18 @@ Speaker Browser                     Vercel Serverless              Listener Smar
 
 ## Environment Variables
 
+### Frontend (Vercel env vars)
 ```bash
-OPENAI_API_KEY=sk-...                    # Server-side: fallback STT, Translation, TTS
-VITE_SUPABASE_URL=https://...supabase.co # Client-side: Supabase
+VITE_SUPABASE_URL=https://...supabase.co # Client-side: Supabase + Edge Function base URL
 VITE_SUPABASE_ANON_KEY=eyJ...            # Client-side: Supabase anon key
 VITE_APP_URL=https://your-app.vercel.app # Client-side: QR code URL generation
-SUPABASE_SERVICE_ROLE_KEY=eyJ...         # Server-side: JWT verification + api_keys table access
-API_KEY_ENCRYPTION_SECRET=<64-hex-chars> # Server-side: AES-256-GCM key for encrypting user API keys
+```
+
+### Edge Functions (Supabase secrets via `supabase secrets set`)
+```bash
+API_KEY_ENCRYPTION_SECRET=<64-hex-chars> # AES-256-GCM key for encrypting user API keys
+# SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are auto-injected by Supabase
+# No OPENAI_API_KEY needed — always resolved from authenticated user's stored key
 ```
 
 ## OpenAI Audio API Reference (knowledge/)

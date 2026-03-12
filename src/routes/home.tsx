@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate, Link } from "react-router";
+import { useNavigate } from "react-router";
 import {
   Languages,
   Globe,
@@ -13,12 +13,16 @@ import {
   Building2,
   GraduationCap,
   Users,
-  Mic,
   Subtitles,
   ChevronRight,
   Play,
   KeyRound,
   Minus,
+  Plus,
+  Volume2,
+  Wifi,
+  Signal,
+  Battery,
 } from "lucide-react";
 import { Badge } from "~/components/ui/badge.tsx";
 import { Button } from "~/components/ui/button.tsx";
@@ -31,186 +35,204 @@ import {
   CardTitle,
 } from "~/components/ui/card.tsx";
 import { useAuth } from "~/hooks/useAuth.ts";
+import { Footer } from "~/components/Footer.tsx";
 
-// ─── Demo Data ────────────────────────────────────────────────────────────────
+// ─── Phone Demo Data ─────────────────────────────────────────────────────────
 
-const DEMO_PHRASES = [
-  {
-    en: "Welcome to our international summit on AI and the future of work.",
-    es: "Bienvenidos a nuestra cumbre internacional sobre IA y el futuro del trabajo.",
-    pt: "Bem-vindos à nossa cúpula internacional sobre IA e o futuro do trabalho.",
-    ms: "Selamat datang ke sidang kemuncak antarabangsa kami tentang AI.",
-  },
-  {
-    en: "Our research shows a 40 percent increase in productivity through multilingual collaboration.",
-    es: "Nuestra investigación muestra un aumento del 40% en productividad mediante la colaboración multilingüe.",
-    pt: "Nossa pesquisa mostra aumento de 40% na produtividade através da colaboração multilíngue.",
-    ms: "Penyelidikan kami menunjukkan peningkatan 40% dalam produktiviti melalui kerjasama berbilang bahasa.",
-  },
-  {
-    en: "The next speaker will share breakthrough results from our global pilot program.",
-    es: "El próximo orador compartirá los resultados revolucionarios de nuestro programa piloto global.",
-    pt: "O próximo palestrante compartilhará os resultados revolucionários do nosso programa piloto global.",
-    ms: "Penceramah seterusnya akan berkongsi hasil terobosan dari program perintis global kami.",
-  },
+const PHONE_DEMO_SEGMENTS = [
+  "Willkommen zur internationalen Konferenz über KI und die Zukunft der Arbeit.",
+  "Unsere Forschung zeigt einen Anstieg der Produktivität um 40 Prozent durch mehrsprachige Zusammenarbeit.",
+  "Die nächste Referentin wird bahnbrechende Ergebnisse aus unserem globalen Pilotprogramm vorstellen.",
 ];
 
-const TYPING_SPEED = 28; // ms per character
-const PHRASE_HOLD_MS = 3500;
-const TRANSLATION_DELAY_MS = 600;
+// ─── Phone Demo Widget ───────────────────────────────────────────────────────
 
-// ─── Demo Widget ──────────────────────────────────────────────────────────────
-
-function DemoWidget() {
-  const [phraseIdx, setPhraseIdx] = useState(0);
-  const [charCount, setCharCount] = useState(0);
-  const [showTrans, setShowTrans] = useState(false);
-  const [transVisible, setTransVisible] = useState([false, false, false]);
-  const phaseRef = useRef<"typing" | "hold" | "clearing">("typing");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+function PhoneDemoWidget() {
+  const [revealedWords, setRevealedWords] = useState(0);
+  const [segmentIdx, setSegmentIdx] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const phrase = DEMO_PHRASES[phraseIdx];
-
-  const clear = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-  };
+  const currentText = PHONE_DEMO_SEGMENTS[segmentIdx];
+  const words = currentText.split(/\s+/);
+  const previousSegments = PHONE_DEMO_SEGMENTS.slice(0, segmentIdx);
 
   useEffect(() => {
-    clear();
-    setCharCount(0);
-    setShowTrans(false);
-    setTransVisible([false, false, false]);
-    phaseRef.current = "typing";
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (timerRef.current) clearTimeout(timerRef.current);
 
-    // Typing phase
+    setRevealedWords(0);
+    let count = 0;
+
     intervalRef.current = setInterval(() => {
-      setCharCount((prev) => {
-        const next = prev + 3;
-        if (next >= phrase.en.length) {
-          clearInterval(intervalRef.current!);
-          // Show translations staggered
-          timerRef.current = setTimeout(() => {
-            setShowTrans(true);
-            setTransVisible([false, false, false]);
-            [0, 1, 2].forEach((i) => {
-              timerRef.current = setTimeout(() => {
-                setTransVisible((v) => {
-                  const n = [...v];
-                  n[i] = true;
-                  return n;
-                });
-              }, i * 300);
-            });
-            // Hold then advance
-            timerRef.current = setTimeout(() => {
-              setPhraseIdx((p) => (p + 1) % DEMO_PHRASES.length);
-            }, PHRASE_HOLD_MS + TRANSLATION_DELAY_MS + 3 * 300);
-          }, TRANSLATION_DELAY_MS);
-          return phrase.en.length;
-        }
-        return next;
-      });
-    }, TYPING_SPEED);
+      count++;
+      setRevealedWords(count);
+      if (count >= words.length) {
+        clearInterval(intervalRef.current!);
+        intervalRef.current = null;
+        // Hold, then advance
+        timerRef.current = setTimeout(() => {
+          setSegmentIdx((p) => (p + 1) % PHONE_DEMO_SEGMENTS.length);
+        }, 3500);
+      }
+    }, 90);
 
-    return clear;
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phraseIdx]);
+  }, [segmentIdx]);
 
-  const displayedText = phrase.en.slice(0, charCount);
-  const isTyping = charCount < phrase.en.length;
-
-  const translations = [
-    { flag: "🇪🇸", lang: "Español", text: phrase.es },
-    { flag: "🇵🇹", lang: "Português", text: phrase.pt },
-    { flag: "🇲🇾", lang: "Bahasa Melayu", text: phrase.ms },
-  ];
+  const isRevealing = revealedWords < words.length;
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
-      {/* Demo card */}
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl shadow-indigo-500/10">
-        {/* Top bar */}
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="relative flex size-2.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex size-2.5 rounded-full bg-red-500" />
-            </span>
-            <span className="text-xs font-medium text-white/60 uppercase tracking-wider">Live</span>
+    <div className="mx-auto flex max-w-lg flex-col items-center">
+      {/* Phone frame */}
+      <div className="relative w-[340px] sm:w-[390px]">
+        {/* Outer phone shell */}
+        <div className="overflow-hidden rounded-[2.5rem] border-[6px] border-slate-800 bg-slate-900 shadow-2xl shadow-black/40 dark:border-slate-700">
+          {/* Notch / Dynamic Island */}
+          <div className="relative flex h-8 items-center justify-center bg-slate-900">
+            <div className="h-[22px] w-[100px] rounded-full bg-black" />
           </div>
-          <div className="flex items-center gap-1.5">
-            <Languages className="size-3.5 text-indigo-400" />
-            <span className="text-xs text-white/40">Internationale KI-Konferenz</span>
-          </div>
-          <div className="flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1">
-            <Users className="size-3 text-white/40" />
-            <span className="text-xs text-white/40">87</span>
-          </div>
-        </div>
 
-        {/* Speaker section */}
-        <div className="px-4 py-4">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="flex size-6 items-center justify-center rounded-full bg-indigo-500/20">
-              <Mic className="size-3 text-indigo-400" />
+          {/* Status bar */}
+          <div className="flex items-center justify-between bg-slate-900 px-6 pb-1 pt-0.5">
+            <span className="text-[11px] font-semibold text-white/70">9:41</span>
+            <div className="flex items-center gap-1.5">
+              <Signal className="size-3 text-white/70" />
+              <Wifi className="size-3 text-white/70" />
+              <Battery className="size-3.5 text-white/70" />
             </div>
-            <span className="text-xs font-medium text-indigo-400 uppercase tracking-wider">English · Speaker</span>
           </div>
-          <p className="min-h-[3rem] font-mono text-sm leading-relaxed text-white/90">
-            {displayedText}
-            {isTyping && (
-              <span className="ml-0.5 inline-block w-0.5 h-4 bg-indigo-400 animate-cursor" />
-            )}
-          </p>
-        </div>
 
-        {/* Translations section */}
-        <div className="border-t border-white/10">
-          {translations.map((t, i) => (
-            <div
-              key={t.lang}
-              className={`flex items-start gap-3 border-b border-white/5 px-4 py-3 last:border-0 transition-all duration-500 ${
-                showTrans && transVisible[i]
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-1"
-              }`}
-            >
-              <span className="shrink-0 text-lg leading-none mt-0.5">{t.flag}</span>
-              <div className="min-w-0">
-                <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
-                  {t.lang}
-                </div>
-                <p className="text-sm text-white/70 leading-relaxed">{t.text}</p>
+          {/* App header bar */}
+          <div className="flex items-center justify-between bg-slate-900 px-4 pb-3 pt-2">
+            <div className="flex items-center gap-2">
+              <div className="flex size-6 items-center justify-center rounded-md bg-indigo-500">
+                <Languages className="size-3.5 text-white" />
+              </div>
+              <span className="text-sm font-semibold text-white">LinguAI</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+              </span>
+              <span className="text-[10px] font-medium text-white/50 uppercase tracking-wider">Live</span>
+            </div>
+          </div>
+
+          {/* Language badge */}
+          <div className="bg-slate-900 px-4 pb-3">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/15 px-3 py-1">
+              <Globe className="size-3 text-indigo-400" />
+              <span className="text-xs font-medium text-indigo-300">Deutsch</span>
+            </div>
+          </div>
+
+          {/* TranscriptView area — fixed height, content anchored to bottom */}
+          <div className="relative h-[420px] overflow-hidden bg-slate-900/95">
+            {/* Gradient fade top — hides old text scrolling up */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent" />
+
+            {/* Text size controls */}
+            <div className="absolute right-3 top-2 z-20 flex items-center gap-0.5">
+              <div className="rounded-md p-1 text-white/25">
+                <Minus className="size-3" />
+              </div>
+              <span className="text-[9px] text-white/25">Mittel</span>
+              <div className="rounded-md p-1 text-white/25">
+                <Plus className="size-3" />
               </div>
             </div>
-          ))}
-          {!showTrans && (
-            <div className="flex items-center gap-2 px-4 py-4">
-              <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
+
+            <div className="absolute inset-0 flex flex-col justify-end px-5 pb-5">
+              {/* Previous segments — faded history */}
+              <div className="space-y-3 pb-6">
+                {previousSegments.map((seg, i) => {
+                  const distanceFromEnd = previousSegments.length - 1 - i;
+                  return (
+                    <p
+                      key={i}
+                      className={`text-lg leading-relaxed transition-all duration-300 ${
+                        distanceFromEnd === 0
+                          ? "text-white/40"
+                          : distanceFromEnd <= 1
+                            ? "text-white/25"
+                            : "text-white/15"
+                      }`}
+                    >
+                      {seg}
+                    </p>
+                  );
+                })}
+              </div>
+
+              {/* Current segment — word-by-word reveal */}
+              <p className="text-2xl font-medium leading-snug text-white">
+                {words.map((word, i) => (
                   <span
                     key={i}
-                    className="size-1.5 rounded-full bg-white/20 animate-pulse"
-                    style={{ animationDelay: `${i * 0.2}s` }}
-                  />
+                    className={`transition-opacity duration-300 ${
+                      i < revealedWords ? "opacity-100" : "opacity-0"
+                    }`}
+                  >
+                    {word}{i < words.length - 1 ? " " : ""}
+                  </span>
                 ))}
-              </div>
-              <span className="text-xs text-white/30">Übersetzung läuft…</span>
+                {isRevealing && (
+                  <span className="ml-0.5 inline-block h-7 w-[3px] animate-cursor rounded-full bg-indigo-400 align-middle opacity-80" />
+                )}
+              </p>
+
+              {/* Speaking indicator */}
+              {isRevealing && (
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="flex items-end gap-0.5">
+                    <span className="inline-block w-[3px] h-3 rounded-full bg-indigo-400 animate-pulse" style={{ animationDelay: "0ms" }} />
+                    <span className="inline-block w-[3px] h-4 rounded-full bg-indigo-400 animate-pulse" style={{ animationDelay: "150ms" }} />
+                    <span className="inline-block w-[3px] h-2.5 rounded-full bg-indigo-400 animate-pulse" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <span className="text-xs text-white/35">spricht…</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Bottom bar — TTS controls */}
+          <div className="flex items-center justify-between border-t border-white/5 bg-slate-900 px-5 py-3">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-full bg-indigo-500/20">
+                <Volume2 className="size-4 text-indigo-400" />
+              </div>
+              <div>
+                <span className="block text-[10px] font-medium text-white/40 uppercase tracking-wider">Sprachausgabe</span>
+                <span className="text-xs text-white/60">Aktiv</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-1">
+              <Headphones className="size-3 text-white/40" />
+              <span className="text-[10px] text-white/40">Kopfhörer</span>
+            </div>
+          </div>
+
+          {/* Home indicator */}
+          <div className="flex justify-center bg-slate-900 pb-2 pt-1">
+            <div className="h-1 w-28 rounded-full bg-white/20" />
+          </div>
         </div>
       </div>
 
-      {/* Phrase progress dots */}
-      <div className="mt-4 flex justify-center gap-2">
-        {DEMO_PHRASES.map((_, i) => (
+      {/* Segment progress dots */}
+      <div className="mt-6 flex justify-center gap-2">
+        {PHONE_DEMO_SEGMENTS.map((_, i) => (
           <button
             key={i}
-            onClick={() => setPhraseIdx(i)}
+            onClick={() => setSegmentIdx(i)}
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              i === phraseIdx ? "w-6 bg-indigo-400" : "w-1.5 bg-white/20"
+              i === segmentIdx ? "w-6 bg-indigo-400" : "w-1.5 bg-muted-foreground/20"
             }`}
           />
         ))}
@@ -232,7 +254,7 @@ const FEATURES = [
     icon: Globe,
     title: "Live-Übersetzung",
     description:
-      "KI übersetzt in Echtzeit in über 39 Sprachen — Latenz unter 2 Sekunden. Kein Dolmetscher, kein Equipment.",
+      "KI übersetzt in Echtzeit in über 39 Sprachen. Kein Dolmetscher, kein Equipment.",
     accent: "bg-blue-500/10 text-blue-400",
   },
   {
@@ -291,7 +313,7 @@ const PROVIDER_FEATURES = [
     feature: "Transkription (STT)",
     description: "Sprache zu Text in Echtzeit",
     openai: "gpt-4o-transcribe",
-    elevenlabs: null,
+    elevenlabs: "Scribe v1",
     browser: null,
   },
   {
@@ -473,9 +495,9 @@ export function Home() {
           <div className="animate-fade-up mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground" style={{ animationDelay: "0.4s", opacity: 0 }}>
             {[
               { value: "39+", label: "Sprachen" },
-              { value: "<2s", label: "Latenz" },
-              { value: "0 CHF", label: "Lizenzkosten" },
-              { value: "0", label: "App-Downloads nötig" },
+              { value: "Bring your own", label: "API Key" },
+              { value: "Keine", label: "Lizenzkosten" },
+              { value: "Keine", label: "App-Downloads nötig" },
             ].map((stat) => (
               <div key={stat.label} className="flex items-baseline gap-1.5">
                 <span className="text-xl font-bold text-foreground">{stat.value}</span>
@@ -484,10 +506,6 @@ export function Home() {
             ))}
           </div>
 
-          {/* Demo preview in hero */}
-          <div className="animate-fade-up mt-16 w-full" style={{ animationDelay: "0.5s", opacity: 0 }}>
-            <DemoWidget />
-          </div>
         </div>
       </section>
 
@@ -540,12 +558,12 @@ export function Home() {
                 Sieh es in Aktion
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
-                So sieht LinguAI in der Praxis aus. Der Speaker spricht Englisch —
-                Zuhörer wählen ihre Sprache und sehen die Übersetzung sofort.
+                So sieht es auf dem Smartphone der Teilnehmenden aus — einfach
+                mitlesen, zuhören und der Sprache folgen. Kein Setup, keine App.
               </p>
             </div>
 
-            <DemoWidget />
+            <PhoneDemoWidget />
 
             <div className="mt-12 flex justify-center">
               <Button
@@ -686,13 +704,13 @@ export function Home() {
                     </div>
                     <div>
                       <CardTitle className="text-lg">ElevenLabs</CardTitle>
-                      <CardDescription>Optional — für natürlichere Stimmen</CardDescription>
+                      <CardDescription>Optional — für Transkription & Stimmen</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {["Ultra-realistische mehrsprachige Stimmen", "eleven_multilingual_v2 Modell", "Alternative zu OpenAI TTS"].map((f) => (
+                    {["Echtzeit-Transkription (Scribe v1)", "Ultra-realistische mehrsprachige Stimmen (eleven_multilingual_v2)", "Alternative zu OpenAI für STT & TTS"].map((f) => (
                       <li key={f} className="flex items-start gap-2 text-sm">
                         <Check className="mt-0.5 size-4 shrink-0 text-violet-500" />
                         <span>{f}</span>
@@ -788,23 +806,7 @@ export function Home() {
         </section>
       </main>
 
-      {/* ── Footer ────────────────────────────────────────────────── */}
-      <footer className="border-t bg-muted/20">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 px-4 py-6 text-center text-sm text-muted-foreground md:flex-row md:justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Languages className="size-3.5" />
-            </div>
-            <span className="font-semibold text-foreground">LinguAI</span>
-            <span>&copy; {new Date().getFullYear()}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="hover:text-foreground transition-colors">Anmelden</Link>
-            <button onClick={() => scrollTo("#providers")} className="hover:text-foreground transition-colors">Anbieter</button>
-            <button onClick={() => scrollTo("#demo")} className="hover:text-foreground transition-colors">Demo</button>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

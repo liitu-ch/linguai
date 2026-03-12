@@ -106,6 +106,7 @@ export function Dashboard() {
       password_hash: passwordHash,
       default_tts_mode: data.allowedTtsModes.includes("openai") ? "openai" : data.allowedTtsModes.includes("browser") ? "browser" : "off",
       allowed_tts_modes: data.allowedTtsModes,
+      stt_provider: data.sttProvider,
       tts_provider: data.ttsProvider,
       tts_speed: data.ttsSpeed,
       scheduled_at: data.scheduledAt || null,
@@ -132,6 +133,7 @@ export function Dashboard() {
       speaker_name: data.speakerName.trim() || null,
       default_tts_mode: data.allowedTtsModes.includes("openai") ? "openai" : data.allowedTtsModes.includes("browser") ? "browser" : "off",
       allowed_tts_modes: data.allowedTtsModes,
+      stt_provider: data.sttProvider,
       tts_provider: data.ttsProvider,
       tts_speed: data.ttsSpeed,
       scheduled_at: data.scheduledAt || null,
@@ -375,6 +377,9 @@ export function Dashboard() {
                 }
                 const cardAllowedModes = event.allowed_tts_modes ?? (event.default_tts_mode ? [event.default_tts_mode] : ["off"]);
                 speakerParams.set("allowedTts", cardAllowedModes.join(","));
+                if (event.stt_provider && event.stt_provider !== "openai") {
+                  speakerParams.set("sttProvider", event.stt_provider);
+                }
                 if (event.tts_provider && event.tts_provider !== "openai") {
                   speakerParams.set("ttsProvider", event.tts_provider);
                 }
@@ -541,6 +546,7 @@ export function Dashboard() {
                     : editingEvent.default_tts_mode
                       ? [editingEvent.default_tts_mode as TTSMode]
                       : ["off", "browser"],
+                  sttProvider: (editingEvent.stt_provider as "openai" | "elevenlabs") ?? "openai",
                   ttsProvider: (editingEvent.tts_provider as "openai" | "elevenlabs" | "browser") ?? "openai",
                   ttsSpeed: editingEvent.tts_speed ?? 1.1,
                   hasPassword: !!editingEvent.password_hash,

@@ -1,25 +1,7 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { corsResponse, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
 const VALID_PROVIDERS = ["openai", "elevenlabs"] as const;
 type Provider = (typeof VALID_PROVIDERS)[number];
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { provider, key } = req.body ?? {};
-
-  if (!provider || !VALID_PROVIDERS.includes(provider)) {
-    return res.status(400).json({ error: "Invalid provider" });
-  }
-  if (!key || typeof key !== "string" || key.trim().length < 10) {
-    return res.status(400).json({ error: "Invalid API key" });
-  }
-
-  const valid = await validateKey(provider as Provider, key.trim());
-  return res.json({ valid });
-}
 
 async function validateKey(provider: Provider, key: string): Promise<boolean> {
   try {
@@ -34,7 +16,6 @@ async function validateKey(provider: Provider, key: string): Promise<boolean> {
         headers: { "xi-api-key": key },
       });
       if (r.ok) return true;
-      // Key with restricted permissions is still valid
       if (r.status === 401 || r.status === 403) {
         const body = await r.json().catch(() => null);
         if (body?.detail?.status === "missing_permissions") return true;
@@ -46,3 +27,20 @@ async function validateKey(provider: Provider, key: string): Promise<boolean> {
     return false;
   }
 }
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return corsResponse();
+  if (req.method !== "POST") return errorResponse("Method not allowed", 405);
+
+  const { provider, key } = await req.json();
+
+  if (!provider || !VALID_PROVIDERS.includes(provider)) {
+    return errorResponse("Invalid provider", 400);
+  }
+  if (!key || typeof key !== "string" || key.trim().length < 10) {
+    return errorResponse("Invalid API key", 400);
+  }
+
+  const valid = await validateKey(provider as Provider, key.trim());
+  return jsonResponse({ valid });
+});

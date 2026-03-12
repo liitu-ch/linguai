@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "~/lib/supabase.ts";
+import { fnUrl } from "~/lib/api.ts";
 import type { ApiProvider } from "~/types/database.ts";
 
 export interface ApiKeyInfo {
@@ -28,7 +29,7 @@ export function useApiKeys() {
   const fetchKeys = useCallback(async () => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch("/api/api-keys", { headers });
+      const res = await fetch(fnUrl("api-keys"), { headers });
       if (res.ok) {
         const data = await res.json();
         setKeys(data.keys ?? []);
@@ -48,7 +49,7 @@ export function useApiKeys() {
     async (provider: ApiProvider, key: string): Promise<{ valid: boolean; error?: string }> => {
       try {
         const headers = await getAuthHeaders();
-        const res = await fetch("/api/api-keys", {
+        const res = await fetch(fnUrl("api-keys"), {
           method: "POST",
           headers,
           body: JSON.stringify({ provider, key }),
@@ -68,7 +69,7 @@ export function useApiKeys() {
     async (provider: ApiProvider): Promise<{ error?: string }> => {
       try {
         const headers = await getAuthHeaders();
-        const res = await fetch(`/api/api-keys?provider=${provider}`, {
+        const res = await fetch(`${fnUrl("api-keys")}?provider=${provider}`, {
           method: "DELETE",
           headers,
         });
@@ -88,7 +89,7 @@ export function useApiKeys() {
   const validateKey = useCallback(
     async (provider: ApiProvider, key: string): Promise<boolean> => {
       try {
-        const res = await fetch("/api/validate-key", {
+        const res = await fetch(fnUrl("validate-key"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ provider, key }),

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Check, Loader2, Lock, Eye, EyeOff, Save, Volume2, VolumeOff, Sparkles, CalendarDays, AudioLines, TriangleAlert } from "lucide-react";
+import { Check, Loader2, Lock, Eye, EyeOff, Save, Volume2, VolumeOff, Sparkles, CalendarDays, AudioLines, TriangleAlert, Mic } from "lucide-react";
 import type { SupportedLanguage } from "~/types/session.ts";
 import type { TTSMode } from "~/hooks/useTTS.ts";
 import type { TTSProvider, ApiProvider } from "~/types/database.ts";
@@ -18,6 +18,7 @@ export interface SessionFormData {
   password: string;
   /** true = password was explicitly changed (set or cleared) */
   passwordChanged: boolean;
+  sttProvider: ApiProvider;
   allowedTtsModes: TTSMode[];
   ttsProvider: TTSProvider;
   ttsSpeed: number;
@@ -49,6 +50,7 @@ export function CreateSessionForm({
   const [password, setPassword] = useState(initialData?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
+  const [sttProvider, setSttProvider] = useState<ApiProvider>(initialData?.sttProvider ?? "openai");
   const [allowedTtsModes, setAllowedTtsModes] = useState<TTSMode[]>(initialData?.allowedTtsModes ?? ["off", "browser"]);
   const [ttsProvider, setTtsProvider] = useState<TTSProvider>(initialData?.ttsProvider ?? "openai");
   const [ttsSpeed, setTtsSpeed] = useState(initialData?.ttsSpeed ?? 1.1);
@@ -76,7 +78,7 @@ export function CreateSessionForm({
     if (allowedTtsModes.length === 0) return;
     // Require password only if protection is on AND (it's new or was changed)
     if (isProtected && !password.trim() && (!initialData?.hasPassword || passwordChanged)) return;
-    onSubmit({ title, sourceLang, targetLanguages, speakerName, password: isProtected ? password : "", passwordChanged, allowedTtsModes, ttsProvider, ttsSpeed, scheduledAt });
+    onSubmit({ title, sourceLang, targetLanguages, speakerName, password: isProtected ? password : "", passwordChanged, sttProvider, allowedTtsModes, ttsProvider, ttsSpeed, scheduledAt });
   };
 
   const availableTargets = LANGUAGE_LIST.filter((l) => l.code !== sourceLang);
@@ -302,7 +304,50 @@ export function CreateSessionForm({
         </div>
       </div>
 
-      {/* ── Step 4: Allowed TTS Modes ── */}
+      {/* ── Step 4: STT Provider ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+            4
+          </div>
+          <h3 className="font-semibold">Transkription (STT)</h3>
+          <span className="text-xs text-muted-foreground">
+            Sprache zu Text
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-2 pl-9 sm:grid-cols-2">
+          {([
+            { value: "openai" as const, label: "OpenAI", description: "gpt-4o-transcribe — Realtime WebSocket-Streaming" },
+            { value: "elevenlabs" as const, label: "ElevenLabs", description: "Scribe v1 — Hochwertige Transkription" },
+          ]).map((opt) => {
+            const isActive = sttProvider === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSttProvider(opt.value)}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm text-left transition-all",
+                  isActive
+                    ? "border-primary bg-primary/5 text-primary ring-1 ring-primary/20"
+                    : "border-border bg-background hover:border-primary/30 hover:bg-primary/[0.02]"
+                )}
+              >
+                <Mic className={cn("size-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                <div className="min-w-0">
+                  <span className="font-medium truncate">{opt.label}</span>
+                  <p className="text-xs text-muted-foreground">{opt.description}</p>
+                </div>
+                {isActive && (
+                  <Check className="ml-auto size-3.5 shrink-0 text-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Step 5: Allowed TTS Modes ── */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <div
@@ -311,7 +356,7 @@ export function CreateSessionForm({
               "bg-primary text-primary-foreground"
             )}
           >
-            4
+            5
           </div>
           <h3 className="font-semibold">Sprachausgabe-Optionen</h3>
           <span className="text-xs text-muted-foreground">
@@ -362,7 +407,7 @@ export function CreateSessionForm({
         </p>
       </div>
 
-      {/* ── Step 5: TTS Provider (only when premium TTS) ── */}
+      {/* ── Step 6: TTS Provider (only when premium TTS) ── */}
       {allowedTtsModes.includes("openai") && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -372,7 +417,7 @@ export function CreateSessionForm({
                 "bg-primary text-primary-foreground"
               )}
             >
-              5
+              6
             </div>
             <h3 className="font-semibold">TTS-Anbieter</h3>
             <span className="text-xs text-muted-foreground">
@@ -413,7 +458,7 @@ export function CreateSessionForm({
         </div>
       )}
 
-      {/* ── Step 6: TTS Speed (only OpenAI) ── */}
+      {/* ── Step 7: TTS Speed (only OpenAI) ── */}
       {allowedTtsModes.includes("openai") && ttsProvider === "openai" && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -423,7 +468,7 @@ export function CreateSessionForm({
                 "bg-primary text-primary-foreground"
               )}
             >
-              6
+              7
             </div>
             <h3 className="font-semibold">Sprechgeschwindigkeit</h3>
             <span className="text-xs text-muted-foreground">
@@ -453,27 +498,38 @@ export function CreateSessionForm({
 
       {/* ── Missing API Key Warning ── */}
       {hasValidKey && (() => {
-        const missing: string[] = [];
-        // OpenAI key is always needed (for STT + translation)
-        if (!hasValidKey("openai")) missing.push("OpenAI");
-        // ElevenLabs only if selected as TTS provider
-        if (allowedTtsModes.includes("openai") && ttsProvider === "elevenlabs" && !hasValidKey("elevenlabs")) {
-          missing.push("ElevenLabs");
-        }
-        if (missing.length === 0) return null;
+        const missingOpenai = !hasValidKey("openai");
+        const missingElevenlabs = allowedTtsModes.includes("openai") && ttsProvider === "elevenlabs" && !hasValidKey("elevenlabs");
+        if (!missingOpenai && !missingElevenlabs) return null;
         return (
-          <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-            <TriangleAlert className="size-4 shrink-0 text-amber-500 mt-0.5" />
+          <div className={cn(
+            "flex items-start gap-3 rounded-xl border px-4 py-3",
+            missingOpenai
+              ? "border-red-500/30 bg-red-500/5"
+              : "border-amber-500/30 bg-amber-500/5"
+          )}>
+            <TriangleAlert className={cn("size-4 shrink-0 mt-0.5", missingOpenai ? "text-red-500" : "text-amber-500")} />
             <div className="min-w-0 text-sm">
-              <p className="font-medium text-foreground">
-                Fehlende API-Schlüssel: {missing.join(", ")}
-              </p>
+              {missingOpenai && (
+                <p className="font-medium text-foreground">
+                  OpenAI API-Schlüssel erforderlich
+                </p>
+              )}
               <p className="mt-0.5 text-muted-foreground">
-                Hinterlege deine Schlüssel in den{" "}
+                {missingOpenai && (
+                  <>
+                    Ein OpenAI-Schlüssel wird <span className="font-medium text-foreground">immer</span> benötigt — für Transkription und Übersetzung, unabhängig vom TTS-Anbieter.
+                  </>
+                )}
+                {missingOpenai && missingElevenlabs && " "}
+                {missingElevenlabs && (
+                  <>Zusätzlich fehlt der ElevenLabs-Schlüssel für die gewählte Sprachausgabe.</>
+                )}
+                {" "}Hinterlege deine Schlüssel in den{" "}
                 <Link to="/dashboard/settings" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
                   Profileinstellungen
                 </Link>
-                , damit die Session funktioniert.
+                .
               </p>
             </div>
           </div>

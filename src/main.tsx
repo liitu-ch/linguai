@@ -7,6 +7,9 @@ import { Dashboard } from "~/routes/dashboard.tsx";
 import { Settings } from "~/routes/settings.tsx";
 import { Speaker } from "~/routes/speaker.tsx";
 import { Session } from "~/routes/session.tsx";
+import { Impressum } from "~/routes/impressum.tsx";
+import { Datenschutz } from "~/routes/datenschutz.tsx";
+import { AGB } from "~/routes/agb.tsx";
 import { AuthGuard } from "~/components/AuthGuard.tsx";
 import { ThemeProvider } from "~/contexts/ThemeContext.tsx";
 import "./index.css";
@@ -20,6 +23,9 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/session/:sessionId" element={<Session />} />
+        <Route path="/impressum" element={<Impressum />} />
+        <Route path="/datenschutz" element={<Datenschutz />} />
+        <Route path="/agb" element={<AGB />} />
 
         {/* Protected */}
         <Route

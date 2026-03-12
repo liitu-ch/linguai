@@ -32,6 +32,7 @@ import {
 import { Input } from "~/components/ui/input.tsx";
 import { cn } from "~/lib/utils.ts";
 import { supabase } from "~/lib/supabase.ts";
+import { fnUrl } from "~/lib/api.ts";
 import { sha256 } from "~/lib/crypto.ts";
 import type {
   SupportedLanguage,
@@ -217,7 +218,7 @@ export function Session() {
             headers.Authorization = `Bearer ${sessionData.session.access_token}`;
           }
           const provider = ttsProvider === "browser" ? "openai" : ttsProvider;
-          const res = await fetch("/api/tts", {
+          const res = await fetch(fnUrl("tts"), {
             method: "POST",
             headers,
             body: JSON.stringify({ text, lang, speed: ttsSpeed, provider }),

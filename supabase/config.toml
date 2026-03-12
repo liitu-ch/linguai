@@ -1,0 +1,17 @@
+[functions.api-keys]
+verify_jwt = false
+
+[functions.validate-key]
+verify_jwt = false
+
+[functions.realtime-token]
+verify_jwt = false
+
+[functions.translate]
+verify_jwt = false
+
+[functions.tts]
+verify_jwt = false
+
+[functions.transcribe]
+verify_jwt = false

@@ -2,6 +2,7 @@ import { useRef, useState, useCallback } from "react";
 import type { SupportedLanguage } from "~/types/session.ts";
 import type { TranslateRequestBody, TranslateResponse, GlossaryEntry } from "~/types/api.ts";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { fnUrl } from "~/lib/api.ts";
 
 interface UseChunkedTranscriptionOptions {
   mode: "chunked" | "diarize";
@@ -100,7 +101,7 @@ export function useChunkedTranscription({
         )
       );
 
-      const res = await fetch("/api/transcribe", {
+      const res = await fetch(fnUrl("transcribe"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -157,7 +158,7 @@ export function useChunkedTranscription({
       context: contextRef.current?.trim() || undefined,
     };
 
-    fetch("/api/translate", {
+    fetch(fnUrl("translate"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

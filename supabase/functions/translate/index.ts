@@ -1,97 +1,20 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-import OpenAI from "openai";
-import { nanoid } from "nanoid";
-import { authenticateRequest, getUserApiKey, AuthError } from "./_lib/auth.ts";
+import { corsResponse, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { resolveApiKey, AuthError } from "../_shared/auth.ts";
+import OpenAI from "npm:openai@4";
+import { nanoid } from "npm:nanoid@5";
 
 const LANG_NAMES: Record<string, string> = {
-  en: "English",
-  de: "German",
-  fr: "French",
-  it: "Italian",
-  es: "Spanish",
-  pt: "Portuguese",
-  ms: "Malay",
-  cs: "Czech",
-  sk: "Slovak",
-  ar: "Arabic",
-  bg: "Bulgarian",
-  ca: "Catalan",
-  da: "Danish",
-  el: "Greek",
-  et: "Estonian",
-  fi: "Finnish",
-  he: "Hebrew",
-  hi: "Hindi",
-  hr: "Croatian",
-  hu: "Hungarian",
-  id: "Indonesian",
-  ja: "Japanese",
-  ko: "Korean",
-  lt: "Lithuanian",
-  lv: "Latvian",
-  nl: "Dutch",
-  no: "Norwegian",
-  pl: "Polish",
-  ro: "Romanian",
-  ru: "Russian",
-  sl: "Slovenian",
-  sr: "Serbian",
-  sv: "Swedish",
-  th: "Thai",
-  tr: "Turkish",
-  uk: "Ukrainian",
-  vi: "Vietnamese",
-  zh: "Chinese",
+  en: "English", de: "German", fr: "French", it: "Italian",
+  es: "Spanish", pt: "Portuguese", ms: "Malay", cs: "Czech",
+  sk: "Slovak", ar: "Arabic", bg: "Bulgarian", ca: "Catalan",
+  da: "Danish", el: "Greek", et: "Estonian", fi: "Finnish",
+  he: "Hebrew", hi: "Hindi", hr: "Croatian", hu: "Hungarian",
+  id: "Indonesian", ja: "Japanese", ko: "Korean", lt: "Lithuanian",
+  lv: "Latvian", nl: "Dutch", no: "Norwegian", pl: "Polish",
+  ro: "Romanian", ru: "Russian", sl: "Slovenian", sr: "Serbian",
+  sv: "Swedish", th: "Thai", tr: "Turkish", uk: "Ukrainian",
+  vi: "Vietnamese", zh: "Chinese",
 };
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  try {
-    // Resolve API key — authenticated user key or fallback to env
-    let apiKey: string;
-    const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith("Bearer ")) {
-      const userId = await authenticateRequest(req);
-      apiKey = await getUserApiKey(userId, "openai");
-    } else {
-      apiKey = process.env.OPENAI_API_KEY ?? "";
-      if (!apiKey) {
-        return res.status(500).json({ error: "OPENAI_API_KEY not configured" });
-      }
-    }
-
-    const openai = new OpenAI({ apiKey });
-
-    const { text, sourceLang, targetLangs, sequenceNum, glossary, context } = req.body;
-
-    if (!text || !sourceLang || !targetLangs?.length) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const translations = await batchTranslate(openai, text, sourceLang, targetLangs, glossary, context);
-
-    const segment = {
-      id: nanoid(),
-      sequenceNum: sequenceNum ?? 0,
-      originalText: text,
-      originalLang: sourceLang,
-      translations,
-      timestampMs: Date.now(),
-      isFinal: true,
-    };
-
-    return res.json({ segment });
-  } catch (err) {
-    if (err instanceof AuthError) {
-      return res.status(err.status).json({ error: err.message });
-    }
-    console.error("[translate] Error:", err);
-    return res.status(500).json({ error: "Translation failed" });
-  }
-}
 
 async function batchTranslate(
   openai: OpenAI,
@@ -99,7 +22,7 @@ async function batchTranslate(
   sourceLang: string,
   targetLangs: string[],
   glossary?: Array<{ source: string; target: string; lang?: string }>,
-  context?: string
+  context?: string,
 ): Promise<Record<string, string>> {
   if (targetLangs.length === 0) return {};
 
@@ -159,7 +82,7 @@ Translation style:
         schema: {
           type: "object",
           properties: Object.fromEntries(
-            targetLangs.map((l) => [l, { type: "string" }])
+            targetLangs.map((l) => [l, { type: "string" }]),
           ),
           required: targetLangs,
           additionalProperties: false,
@@ -173,7 +96,6 @@ Translation style:
   });
 
   const raw = completion.choices[0]?.message?.content ?? "{}";
-
   try {
     return JSON.parse(raw);
   } catch {
@@ -181,3 +103,42 @@ Translation style:
     return {};
   }
 }
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return corsResponse();
+  if (req.method !== "POST") return errorResponse("Method not allowed", 405);
+
+  try {
+    const apiKey = await resolveApiKey(req, "openai");
+    const openai = new OpenAI({ apiKey });
+
+    const { text, sourceLang, targetLangs, sequenceNum, glossary, context } =
+      await req.json();
+
+    if (!text || !sourceLang || !targetLangs?.length) {
+      return errorResponse("Missing required fields", 400);
+    }
+
+    const translations = await batchTranslate(
+      openai, text, sourceLang, targetLangs, glossary, context,
+    );
+
+    const segment = {
+      id: nanoid(),
+      sequenceNum: sequenceNum ?? 0,
+      originalText: text,
+      originalLang: sourceLang,
+      translations,
+      timestampMs: Date.now(),
+      isFinal: true,
+    };
+
+    return jsonResponse({ segment });
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return errorResponse(err.message, err.status);
+    }
+    console.error("[translate] Error:", err);
+    return errorResponse("Translation failed");
+  }
+});

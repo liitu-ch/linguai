@@ -3,6 +3,7 @@ import type { SupportedLanguage } from "~/types/session.ts";
 import type { TTSProvider } from "~/types/database.ts";
 import { LANGUAGES } from "~/lib/languages.ts";
 import { supabase } from "~/lib/supabase.ts";
+import { fnUrl } from "~/lib/api.ts";
 
 export type TTSMode = "browser" | "openai" | "off";
 
@@ -73,7 +74,7 @@ export function useTTS({ mode, lang, volume = 1, rate = 1, speed = 1.1, browserV
       }
 
       const provider = ttsProviderRef.current;
-      const res = await fetch("/api/tts", {
+      const res = await fetch(fnUrl("tts"), {
         method: "POST",
         headers,
         body: JSON.stringify({

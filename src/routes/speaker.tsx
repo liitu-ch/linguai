@@ -20,7 +20,6 @@ import {
   Zap,
 } from "lucide-react";
 import { useRealtimeTranscription } from "~/hooks/useRealtimeTranscription.ts";
-import { useChunkedTranscription } from "~/hooks/useChunkedTranscription.ts";
 import { QRCodeDisplay } from "~/components/QRCodeDisplay.tsx";
 import { RecordingControls } from "~/components/RecordingControls.tsx";
 import { TranscriptView } from "~/components/TranscriptView.tsx";
@@ -29,7 +28,8 @@ import { ThemeToggle } from "~/components/ThemeToggle.tsx";
 import { Button } from "~/components/ui/button.tsx";
 import { LANGUAGES } from "~/lib/languages.ts";
 import { supabase } from "~/lib/supabase.ts";
-import type { SupportedLanguage, TranscriptionMode } from "~/types/session.ts";
+import type { SupportedLanguage } from "~/types/session.ts";
+import type { ApiProvider, TTSProvider } from "~/types/database.ts";
 import type { GlossaryEntry } from "~/types/api.ts";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { cn } from "~/lib/utils.ts";
@@ -60,8 +60,12 @@ export function Speaker() {
   // Session prep state
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [presentationContext, setPresentationContext] = useState("");
-  const [transcriptionMode, setTranscriptionMode] = useState<TranscriptionMode>("realtime");
-  const [chunkIntervalMs, setChunkIntervalMs] = useState(5000);
+  const [sttProvider, setSttProvider] = useState<ApiProvider>(
+    (searchParams.get("sttProvider") as ApiProvider) || "openai"
+  );
+  const [ttsProvider, setTtsProvider] = useState<TTSProvider>(
+    (searchParams.get("ttsProvider") as TTSProvider) || "openai"
+  );
   const [silenceDurationMs, setSilenceDurationMs] = useState(300);
   const [vadThreshold, setVadThreshold] = useState(0.5);
   const [ttsSpeed, setTtsSpeed] = useState(() => {
@@ -128,7 +132,7 @@ export function Speaker() {
   }, []);
 
   const handleFinal = useCallback((text: string, seq: number) => {
-    const id = `final-${transcriptionMode}-${seq}`;
+    const id = `final-${sttProvider}-${seq}`;
     setSegments((prev) => {
       if (prev.some((s) => s.id === id)) return prev;
       return [
@@ -137,7 +141,7 @@ export function Speaker() {
       ];
     });
     setInterimText("");
-  }, [transcriptionMode]);
+  }, [sttProvider]);
 
   const handleSpeechStart = useCallback(() => {
     channel?.send({
@@ -169,23 +173,8 @@ export function Speaker() {
     onSpeechStop: handleSpeechStop,
   });
 
-  const chunked = useChunkedTranscription({
-    mode: transcriptionMode === "diarize" ? "diarize" : "chunked",
-    sourceLang,
-    targetLangs: targetLanguages,
-    channel,
-    glossary,
-    context: presentationContext,
-    chunkIntervalMs,
-    onInterimTranscript: handleInterim,
-    onFinalTranscript: handleFinal,
-    onSpeechStart: handleSpeechStart,
-    onSpeechStop: handleSpeechStop,
-  });
-
-  const activeTranscription = transcriptionMode === "realtime" ? realtime : chunked;
-  const { start, stop, status } = activeTranscription;
-  const transcriptionError = (activeTranscription as { errorMessage?: string | null }).errorMessage ?? null;
+  const { start, stop, status } = realtime;
+  const transcriptionError = (realtime as { errorMessage?: string | null }).errorMessage ?? null;
 
   // Timer
   useEffect(() => {
@@ -228,7 +217,7 @@ export function Speaker() {
   // Badge counts for settings icon indicator
   const hasGlossary = glossary.length > 0;
   const hasContext = presentationContext.length > 0;
-  const hasCustomVad = silenceDurationMs !== 300 || vadThreshold !== 0.5 || transcriptionMode !== "realtime";
+  const hasCustomVad = silenceDurationMs !== 300 || vadThreshold !== 0.5;
   const settingsBadgeCount =
     (hasGlossary ? 1 : 0) + (hasContext ? 1 : 0) + (hasCustomVad ? 1 : 0);
 
@@ -253,9 +242,8 @@ export function Speaker() {
   if (allowedTtsParam) {
     qsParams.set("allowedTts", allowedTtsParam);
   }
-  const ttsProviderParam = searchParams.get("ttsProvider");
-  if (ttsProviderParam && ttsProviderParam !== "openai") {
-    qsParams.set("ttsProvider", ttsProviderParam);
+  if (ttsProvider !== "openai") {
+    qsParams.set("ttsProvider", ttsProvider);
   }
   if (ttsSpeed !== 1.1) {
     qsParams.set("ttsSpeed", String(ttsSpeed));
@@ -605,10 +593,10 @@ export function Speaker() {
                 onGlossaryChange={setGlossary}
                 context={presentationContext}
                 onContextChange={setPresentationContext}
-                transcriptionMode={transcriptionMode}
-                onTranscriptionModeChange={setTranscriptionMode}
-                chunkIntervalMs={chunkIntervalMs}
-                onChunkIntervalChange={setChunkIntervalMs}
+                sttProvider={sttProvider}
+                onSttProviderChange={setSttProvider}
+                ttsProvider={ttsProvider}
+                onTtsProviderChange={setTtsProvider}
                 silenceDurationMs={silenceDurationMs}
                 onSilenceDurationChange={setSilenceDurationMs}
                 vadThreshold={vadThreshold}
@@ -617,7 +605,7 @@ export function Speaker() {
               />
 
               {/* TTS Speed (only when premium TTS via OpenAI) */}
-              {searchParams.get("tts") === "openai" && (!searchParams.get("ttsProvider") || searchParams.get("ttsProvider") === "openai") && (
+              {ttsProvider === "openai" && (
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
                     <Zap className="size-3.5" />

@@ -3,6 +3,7 @@ import type { SupportedLanguage } from "~/types/session.ts";
 import type { TranslateRequestBody, TranslateResponse, GlossaryEntry } from "~/types/api.ts";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "~/lib/supabase.ts";
+import { fnUrl } from "~/lib/api.ts";
 
 interface UseRealtimeTranscriptionOptions {
   sourceLang: SupportedLanguage;
@@ -111,7 +112,7 @@ export function useRealtimeTranscription({
       headers.Authorization = `Bearer ${sessionData.session.access_token}`;
     }
 
-    const res = await fetch("/api/realtime-token", {
+    const res = await fetch(fnUrl("realtime-token"), {
       method: "POST",
       headers,
       body: JSON.stringify({ language: sourceLangRef.current }),
@@ -186,7 +187,7 @@ export function useRealtimeTranscription({
           };
 
           getTranslateHeaders()
-            .then((h) => fetch("/api/translate", {
+            .then((h) => fetch(fnUrl("translate"), {
               method: "POST",
               headers: h,
               body: JSON.stringify(body),
