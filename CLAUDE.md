@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-LinguAI — Web app for AI-powered simultaneous translation at live events. A speaker records their talk via the browser (OpenAI Realtime API for STT via WebSocket). Transcribed text is translated server-side in real time and broadcast to listener smartphones via Supabase Realtime channels. Listeners see the live transcript and hear the translation via TTS.
+LinguAI — Free, open web app for AI-powered simultaneous translation at live events. "Bring your own API Key" model: users provide their own OpenAI (required) and ElevenLabs (optional) API keys. A speaker records their talk via the browser (OpenAI Realtime API for STT via WebSocket). Transcribed text is translated server-side in real time and broadcast to listener smartphones via Supabase Realtime channels. Listeners see the live transcript and hear the translation via TTS.
 
 **Session flow:** Speaker creates session → QR code displayed → listeners scan with smartphone → choose target language → see live transcript + hear TTS.
 

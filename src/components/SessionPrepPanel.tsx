@@ -144,96 +144,116 @@ export function SessionPrepPanel({
         </div>
       </div>
 
-      {/* Mode-specific settings */}
+      {/* Audio settings */}
       <div className="rounded-xl border bg-card p-4">
         <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <SlidersHorizontal className="size-3.5" />
-          {transcriptionMode === "realtime"
-            ? "Realtime-Einstellungen"
-            : "Chunk-Einstellungen"}
+          Audio-Einstellungen
         </div>
 
-        {transcriptionMode === "realtime" ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            {/* Silence Duration */}
-            <div>
-              <div className="flex items-center justify-between">
-                <label htmlFor="silence-duration" className="text-sm font-medium">
-                  Stille-Erkennung
-                </label>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {silenceDurationMs} ms
+        <div className="space-y-5">
+          {/* VAD settings (realtime only) */}
+          <div className={cn(transcriptionMode !== "realtime" && "opacity-40 pointer-events-none")}>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Realtime VAD</span>
+              {transcriptionMode !== "realtime" && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                  nur Realtime-Modus
                 </span>
-              </div>
-              <input
-                id="silence-duration"
-                type="range"
-                min={200}
-                max={2000}
-                step={100}
-                value={silenceDurationMs}
-                onChange={(e) => onSilenceDurationChange(Number(e.target.value))}
-                disabled={disabled}
-                className="mt-2 w-full accent-primary disabled:opacity-40"
-              />
-              <p className="mt-1 text-[11px] leading-tight text-muted-foreground">
-                Kürzer = mehr kleine Blöcke · Länger = weniger grosse Blöcke
-              </p>
+              )}
             </div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              {/* Silence Duration */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="silence-duration" className="text-sm font-medium">
+                    Stille-Erkennung
+                  </label>
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {silenceDurationMs} ms
+                  </span>
+                </div>
+                <input
+                  id="silence-duration"
+                  type="range"
+                  min={200}
+                  max={2000}
+                  step={100}
+                  value={silenceDurationMs}
+                  onChange={(e) => onSilenceDurationChange(Number(e.target.value))}
+                  disabled={disabled || transcriptionMode !== "realtime"}
+                  className="mt-2 w-full accent-primary disabled:opacity-40"
+                />
+                <p className="mt-1 text-[11px] leading-tight text-muted-foreground">
+                  Kürzer = mehr kleine Blöcke · Länger = weniger grosse Blöcke
+                </p>
+              </div>
 
-            {/* VAD Threshold */}
+              {/* VAD Threshold */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="vad-threshold" className="text-sm font-medium">
+                    VAD-Empfindlichkeit
+                  </label>
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {vadThreshold.toFixed(2)}
+                  </span>
+                </div>
+                <input
+                  id="vad-threshold"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={vadThreshold}
+                  onChange={(e) => onVadThresholdChange(Number(e.target.value))}
+                  disabled={disabled || transcriptionMode !== "realtime"}
+                  className="mt-2 w-full accent-primary disabled:opacity-40"
+                />
+                <p className="mt-1 text-[11px] leading-tight text-muted-foreground">
+                  Niedrig = empfindlicher (leise Sprache) · Hoch = weniger
+                  empfindlich
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Chunk settings (chunked/diarize only) */}
+          <div className={cn(transcriptionMode === "realtime" && "opacity-40 pointer-events-none")}>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Chunk-Modus</span>
+              {transcriptionMode === "realtime" && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                  nur Chunk/Diarize-Modus
+                </span>
+              )}
+            </div>
             <div>
               <div className="flex items-center justify-between">
-                <label htmlFor="vad-threshold" className="text-sm font-medium">
-                  VAD-Empfindlichkeit
+                <label htmlFor="chunk-interval" className="text-sm font-medium">
+                  Chunk-Intervall
                 </label>
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {vadThreshold.toFixed(2)}
+                  {(chunkIntervalMs / 1000).toFixed(1)} s
                 </span>
               </div>
               <input
-                id="vad-threshold"
+                id="chunk-interval"
                 type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={vadThreshold}
-                onChange={(e) => onVadThresholdChange(Number(e.target.value))}
-                disabled={disabled}
+                min={3000}
+                max={15000}
+                step={1000}
+                value={chunkIntervalMs}
+                onChange={(e) => onChunkIntervalChange(Number(e.target.value))}
+                disabled={disabled || transcriptionMode === "realtime"}
                 className="mt-2 w-full accent-primary disabled:opacity-40"
               />
               <p className="mt-1 text-[11px] leading-tight text-muted-foreground">
-                Niedrig = empfindlicher (leise Sprache) · Hoch = weniger
-                empfindlich
+                Kürzer = schnelleres Feedback · Länger = bessere Transkriptionsqualität
               </p>
             </div>
           </div>
-        ) : (
-          <div>
-            <div className="flex items-center justify-between">
-              <label htmlFor="chunk-interval" className="text-sm font-medium">
-                Chunk-Intervall
-              </label>
-              <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                {(chunkIntervalMs / 1000).toFixed(1)} s
-              </span>
-            </div>
-            <input
-              id="chunk-interval"
-              type="range"
-              min={3000}
-              max={15000}
-              step={1000}
-              value={chunkIntervalMs}
-              onChange={(e) => onChunkIntervalChange(Number(e.target.value))}
-              disabled={disabled}
-              className="mt-2 w-full accent-primary disabled:opacity-40"
-            />
-            <p className="mt-1 text-[11px] leading-tight text-muted-foreground">
-              Kürzer = schnelleres Feedback · Länger = bessere Transkriptionsqualität
-            </p>
-          </div>
-        )}
+        </div>
 
         {disabled && (
           <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">

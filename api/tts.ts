@@ -171,8 +171,10 @@ async function handleElevenLabsTTS(
 
   if (!response.ok) {
     const errText = await response.text();
-    console.error("[tts] ElevenLabs error:", errText);
-    return res.status(response.status).json({ error: `ElevenLabs TTS failed: ${response.statusText}` });
+    console.error("[tts] ElevenLabs error:", response.status, errText);
+    const detail = (() => { try { return JSON.parse(errText); } catch { return null; } })();
+    const message = detail?.detail?.message || detail?.detail?.status || response.statusText;
+    return res.status(response.status).json({ error: `ElevenLabs TTS failed: ${message}` });
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());

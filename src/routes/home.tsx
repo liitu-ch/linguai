@@ -17,6 +17,8 @@ import {
   Subtitles,
   ChevronRight,
   Play,
+  KeyRound,
+  Minus,
 } from "lucide-react";
 import { Badge } from "~/components/ui/badge.tsx";
 import { Button } from "~/components/ui/button.tsx";
@@ -222,7 +224,7 @@ function DemoWidget() {
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "Demo", href: "#demo" },
-  { label: "Preise", href: "#pricing" },
+  { label: "Anbieter", href: "#providers" },
 ];
 
 const FEATURES = [
@@ -234,10 +236,17 @@ const FEATURES = [
     accent: "bg-blue-500/10 text-blue-400",
   },
   {
+    icon: KeyRound,
+    title: "Bring your own API Key",
+    description:
+      "LinguAI ist kostenlos. Du nutzt deine eigenen API-Keys von OpenAI oder ElevenLabs — volle Kontrolle über Kosten und Nutzung.",
+    accent: "bg-rose-500/10 text-rose-400",
+  },
+  {
     icon: Subtitles,
     title: "Visuelle Transkription",
     description:
-      "Wort für Wort erscheint die Übersetzung auf dem Smartphone — visuell hervorgehoben wie bei Spotify Podcasts. Klar, gross, lesbar.",
+      "Wort für Wort erscheint die Übersetzung auf dem Smartphone — visuell hervorgehoben. Klar, gross, lesbar.",
     accent: "bg-violet-500/10 text-violet-400",
   },
   {
@@ -277,52 +286,27 @@ const USE_CASES = [
   },
 ];
 
-const PRICING_PLANS = [
+const PROVIDER_FEATURES = [
   {
-    name: "Starter",
-    price: "Kostenlos",
-    period: "",
-    description: "Ideal zum Ausprobieren",
-    features: [
-      "Alle 39+ Sprachen",
-      "Browser Text-to-Speech",
-      "Live-Transkript",
-      "Session-Planung & QR-Codes",
-    ],
-    cta: "Kostenlos starten",
-    ctaVariant: "outline" as const,
-    highlighted: false,
+    feature: "Transkription (STT)",
+    description: "Sprache zu Text in Echtzeit",
+    openai: "gpt-4o-transcribe",
+    elevenlabs: null,
+    browser: null,
   },
   {
-    name: "Professional",
-    price: "CHF 19",
-    period: "/ Stunde",
-    description: "Für Konferenzen und Firmen",
-    features: [
-      "Alles aus Starter",
-      "Premium KI-Stimmen",
-      "Custom Glossar",
-      "Visuelle Transkription",
-      "Prioritäts-Support",
-    ],
-    cta: "Jetzt starten",
-    ctaVariant: "default" as const,
-    highlighted: true,
+    feature: "Übersetzung",
+    description: "Text in 39+ Sprachen übersetzen",
+    openai: "gpt-4o",
+    elevenlabs: null,
+    browser: null,
   },
   {
-    name: "Enterprise",
-    price: "Auf Anfrage",
-    period: "",
-    description: "Für grosse Events & Organisationen",
-    features: [
-      "Alles aus Professional",
-      "Dedizierte Infrastruktur",
-      "SLA & Support",
-      "SSO & Compliance",
-    ],
-    cta: "Kontakt aufnehmen",
-    ctaVariant: "outline" as const,
-    highlighted: false,
+    feature: "Text-to-Speech",
+    description: "Übersetzung vorlesen lassen",
+    openai: "gpt-4o-mini-tts",
+    elevenlabs: "eleven_multilingual_v2",
+    browser: "Web Speech API",
   },
 ];
 
@@ -447,7 +431,7 @@ export function Home() {
           {/* Eyebrow */}
           <div className="mb-6 inline-flex animate-fade-up items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-sm text-indigo-300">
             <Zap className="size-3.5" />
-            KI-Simultandolmetschen · 39+ Sprachen · Kein Equipment
+            Kostenlos · Bring your own API Key · 39+ Sprachen
           </div>
 
           {/* Headline */}
@@ -490,7 +474,7 @@ export function Home() {
             {[
               { value: "39+", label: "Sprachen" },
               { value: "<2s", label: "Latenz" },
-              { value: "0 CHF", label: "Hardware-Kosten" },
+              { value: "0 CHF", label: "Lizenzkosten" },
               { value: "0", label: "App-Downloads nötig" },
             ].map((stat) => (
               <div key={stat.label} className="flex items-baseline gap-1.5">
@@ -518,14 +502,13 @@ export function Home() {
                 Alles was du brauchst — in einer Session
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
-                Traditionelle Simultandolmetscher kosten{" "}
-                <strong>CHF 400–800 pro Stunde</strong>. LinguAI macht Sprachbarrieren
-                überflüssig — für einen Bruchteil davon.
+                LinguAI macht Sprachbarrieren überflüssig — kostenlos, mit deinem eigenen API Key.
+                Kein Dolmetscher, kein Equipment, keine versteckten Kosten.
               </p>
             </div>
 
             {/* Bento grid */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((feature) => (
                 <div
                   key={feature.title}
@@ -653,62 +636,119 @@ export function Home() {
           </div>
         </section>
 
-        {/* ── Pricing ───────────────────────────────────────────────── */}
-        <section id="pricing" className="border-b bg-muted/30 py-20 md:py-28">
+        {/* ── Providers / BYOK ─────────────────────────────────────── */}
+        <section id="providers" className="border-b bg-muted/30 py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
             <div className="mb-16 text-center">
-              <Badge variant="secondary" className="mb-4">Preise</Badge>
+              <Badge className="mb-4 border-indigo-500/30 bg-indigo-500/10 text-indigo-400 dark:text-indigo-300">
+                <KeyRound className="mr-1.5 size-3" />
+                Bring your own API Key
+              </Badge>
               <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                Transparent — ohne versteckte Kosten
+                Kostenlos nutzbar — mit deinem eigenen API Key
               </h2>
-              <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-                Kein Jahresabo, keine Mindestlaufzeit. Du zahlst nur für die Zeit, die du brauchst.
+              <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
+                LinguAI ist komplett kostenlos. Du bringst deinen eigenen API-Schlüssel mit und zahlst nur die tatsächliche Nutzung direkt beim Anbieter — transparent, ohne Aufschlag.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              {PRICING_PLANS.map((plan) => (
-                <Card
-                  key={plan.name}
-                  className={`relative flex flex-col ${plan.highlighted ? "border-primary shadow-lg shadow-primary/10" : ""}`}
-                >
-                  {plan.highlighted && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge>Beliebteste Wahl</Badge>
+            {/* Provider cards */}
+            <div className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <Card className="border-emerald-500/20">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10">
+                      <span className="text-lg font-bold text-emerald-500">AI</span>
                     </div>
-                  )}
-                  <CardHeader>
-                    <CardTitle className="text-lg">{plan.name}</CardTitle>
-                    <CardDescription>{plan.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col">
-                    <div className="mb-6">
-                      <span className="text-4xl font-extrabold">{plan.price}</span>
-                      {plan.period && (
-                        <span className="ml-1 text-muted-foreground">{plan.period}</span>
-                      )}
+                    <div>
+                      <CardTitle className="text-lg">OpenAI</CardTitle>
+                      <CardDescription>Erforderlich für Transkription & Übersetzung</CardDescription>
                     </div>
-                    <ul className="mb-8 flex-1 space-y-2.5">
-                      {plan.features.map((f) => (
-                        <li key={f} className="flex items-start gap-2 text-sm">
-                          <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      variant={plan.ctaVariant}
-                      className="w-full"
-                      onClick={plan.name !== "Enterprise" ? handleCTA : undefined}
-                    >
-                      {plan.cta}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {["Echtzeit-Transkription (gpt-4o-transcribe)", "Übersetzung in 39+ Sprachen (gpt-4o)", "Premium KI-Stimmen (gpt-4o-mini-tts)"].map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm">
+                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="border-violet-500/20">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-violet-500/10">
+                      <span className="text-lg font-bold text-violet-500">11</span>
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">ElevenLabs</CardTitle>
+                      <CardDescription>Optional — für natürlichere Stimmen</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {["Ultra-realistische mehrsprachige Stimmen", "eleven_multilingual_v2 Modell", "Alternative zu OpenAI TTS"].map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm">
+                        <Check className="mt-0.5 size-4 shrink-0 text-violet-500" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Feature comparison table */}
+            <div className="overflow-hidden rounded-2xl border bg-card">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="px-6 py-4 text-left font-semibold">Feature</th>
+                      <th className="px-6 py-4 text-center font-semibold">
+                        <span className="text-emerald-500">OpenAI</span>
+                      </th>
+                      <th className="px-6 py-4 text-center font-semibold">
+                        <span className="text-violet-500">ElevenLabs</span>
+                      </th>
+                      <th className="px-6 py-4 text-center font-semibold">
+                        <span className="text-muted-foreground">Browser</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PROVIDER_FEATURES.map((row) => (
+                      <tr key={row.feature} className="border-b last:border-0">
+                        <td className="px-6 py-4">
+                          <div className="font-medium">{row.feature}</div>
+                          <div className="text-xs text-muted-foreground">{row.description}</div>
+                        </td>
+                        {([row.openai, row.elevenlabs, row.browser] as const).map((value, i) => (
+                          <td key={i} className="px-6 py-4 text-center">
+                            {value ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <Check className={`size-5 ${i === 0 ? "text-emerald-500" : i === 1 ? "text-violet-500" : "text-muted-foreground"}`} />
+                                <span className="text-xs text-muted-foreground">{value}</span>
+                              </div>
+                            ) : (
+                              <Minus className="mx-auto size-5 text-muted-foreground/30" />
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <p className="mt-8 text-center text-sm text-muted-foreground">
+              Browser Text-to-Speech ist kostenlos und funktioniert ohne API Key.
               Zum Vergleich: Ein menschlicher Simultandolmetscher kostet{" "}
               <strong>CHF 400–800 / Stunde</strong> — plus Reise, Equipment und Kabinentechnik.
             </p>
@@ -725,7 +765,7 @@ export function Home() {
               Bereit für dein erstes Event?
             </h2>
             <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-              Starte kostenlos, keine Kreditkarte nötig. In 30 Sekunden bist du bereit.
+              Bring deinen eigenen API Key mit und leg sofort los. Kostenlos, ohne Abo.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Button
@@ -760,7 +800,7 @@ export function Home() {
           </div>
           <div className="flex items-center gap-4">
             <Link to="/login" className="hover:text-foreground transition-colors">Anmelden</Link>
-            <button onClick={() => scrollTo("#pricing")} className="hover:text-foreground transition-colors">Preise</button>
+            <button onClick={() => scrollTo("#providers")} className="hover:text-foreground transition-colors">Anbieter</button>
             <button onClick={() => scrollTo("#demo")} className="hover:text-foreground transition-colors">Demo</button>
           </div>
         </div>

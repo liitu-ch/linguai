@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,10 +12,7 @@ import {
   Settings,
   Volume2,
   VolumeOff,
-  Wifi,
-  WifiOff,
   Sparkles,
-  LogOut,
   X,
 } from "lucide-react";
 import { useChannel } from "~/hooks/useChannel.ts";
@@ -78,7 +75,6 @@ interface DisplaySegment {
 export function Session() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const [selectedLang, setSelectedLang] = useState<SupportedLanguage | null>(null);
   const [showLangPicker, setShowLangPicker] = useState(false);
@@ -215,10 +211,16 @@ export function Session() {
       if (mode === "openai") {
         setIsTestingTTS(true);
         try {
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session?.access_token) {
+            headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+          }
+          const provider = ttsProvider === "browser" ? "openai" : ttsProvider;
           const res = await fetch("/api/tts", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, lang, speed: ttsSpeed }),
+            headers,
+            body: JSON.stringify({ text, lang, speed: ttsSpeed, provider }),
           });
           if (!res.ok) {
             const data = await res.json().catch(() => null);
@@ -244,7 +246,7 @@ export function Session() {
         speechSynthesis.speak(utterance);
       }
     },
-    [ttsSpeed]
+    [ttsSpeed, ttsProvider]
   );
 
   // If only one mode is allowed, skip voice selection and auto-confirm
@@ -292,12 +294,6 @@ export function Session() {
     setShowSettings(open);
     showSettingsRef.current = open;
     if (!open) setHasUnread(false);
-  };
-
-  const handleJoinSession = (code: string) => {
-    const params = new URLSearchParams(searchParams);
-    navigate(`/session/${code}?${params.toString()}`);
-    window.location.reload();
   };
 
   if (!sessionId) {
@@ -614,36 +610,6 @@ export function Session() {
               )}
             </div>
 
-            {/* Connection status */}
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
-              {connectionState === "open" ? (
-                <Wifi className="size-5 text-green-400" />
-              ) : connectionState === "error" ? (
-                <WifiOff className="size-5 text-destructive" />
-              ) : (
-                <Wifi className="size-5 text-yellow-400 animate-pulse" />
-              )}
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {connectionState === "open" ? t.connected : connectionState === "error" ? t.connectionError : t.connecting}
-                </p>
-                {currentLang && <p className="text-xs text-muted-foreground">{currentLang.flag} {currentLang.label}</p>}
-              </div>
-            </div>
-
-            {/* Join another session */}
-            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <LogOut className="size-4 text-muted-foreground/70" />
-                <p className="text-sm font-semibold text-foreground">{t.switchSession}</p>
-              </div>
-              <div className="flex gap-2">
-                <input type="text" id="session-code" placeholder={t.sessionCode} className="h-10 flex-1 rounded-lg border border-border bg-muted/40 px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" onKeyDown={(e) => { if (e.key === "Enter") { const val = (e.target as HTMLInputElement).value.trim(); if (val) handleJoinSession(val); } }} />
-                <Button size="icon" className="bg-indigo-600 hover:bg-indigo-500" onClick={() => { const el = document.getElementById("session-code") as HTMLInputElement; if (el?.value.trim()) handleJoinSession(el.value.trim()); }}>
-                  <ArrowRight className="size-4" />
-                </Button>
-              </div>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
